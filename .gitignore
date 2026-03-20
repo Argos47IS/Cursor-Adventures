@@ -1,0 +1,18 @@
+# Environment
+.env
+venv/
+__pycache__/
+*.pyc
+
+# Telegram session
+tg_session.session
+*.session
+
+# Database
+channel_stats.db
+
+# Reports (optional — remove this line to track reports in git)
+reports/
+
+# Logs
+*.log
