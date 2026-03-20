@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">GeoDetect</string>
+    <string name="map_title">Местоположение фото</string>
+    <string name="full_metadata_title">Все метаданные</string>
+
+    <string name="welcome_title">GeoDetect</string>
+    <string name="welcome_subtitle">Анализ метаданных и геолокации фото</string>
+    <string name="pick_photo">Выбрать фото</string>
+    <string name="take_photo">Сделать фото</string>
+    <string name="drop_hint">Нажмите кнопку ниже, чтобы выбрать изображение для анализа</string>
+
+    <string name="section_location">Местоположение</string>
+    <string name="section_datetime">Дата и время</string>
+    <string name="section_camera">Камера</string>
+    <string name="section_image">Изображение</string>
+    <string name="section_edit_detection">Обнаружение редактирования</string>
+    <string name="section_software">Программное обеспечение</string>
+
+    <string name="label_latitude">Широта</string>
+    <string name="label_longitude">Долгота</string>
+    <string name="label_altitude">Высота</string>
+    <string name="label_date_taken">Дата съёмки</string>
+    <string name="label_date_modified">Дата изменения</string>
+    <string name="label_date_digitized">Дата оцифровки</string>
+    <string name="label_gps_date">GPS дата</string>
+    <string name="label_gps_time">GPS время</string>
+    <string name="label_camera">Камера</string>
+    <string name="label_lens">Объектив</string>
+    <string name="label_focal_length">Фокусное расстояние</string>
+    <string name="label_aperture">Диафрагма</string>
+    <string name="label_iso">ISO</string>
+    <string name="label_exposure">Выдержка</string>
+    <string name="label_flash">Вспышка</string>
+    <string name="label_white_balance">Баланс белого</string>
+    <string name="label_resolution">Разрешение</string>
+    <string name="label_orientation">Ориентация</string>
+    <string name="label_color_space">Цвет. пространство</string>
+    <string name="label_file_name">Имя файла</string>
+    <string name="label_file_size">Размер файла</string>
+    <string name="label_mime_type">Тип</string>
+    <string name="label_software">ПО</string>
+    <string name="label_compression">Сжатие</string>
+
+    <string name="view_on_map">Показать на карте</string>
+    <string name="view_full_metadata">Все метаданные</string>
+    <string name="analyze_another">Анализировать другое фото</string>
+    <string name="no_location">Данные о местоположении недоступны</string>
+    <string name="no_data">Н/Д</string>
+
+    <string name="edit_likely">Вероятно отредактировано</string>
+    <string name="edit_unlikely">Вероятно оригинал</string>
+    <string name="edit_unknown">Невозможно определить</string>
+    <string name="confidence">Уверенность</string>
+    <string name="editing_software">Редактор</string>
+    <string name="reasons">Детали анализа</string>
+
+    <string name="loading">Анализ фото…</string>
+    <string name="error_loading">Ошибка загрузки фото</string>
+    <string name="share_results">Поделиться результатами</string>
+</resources>

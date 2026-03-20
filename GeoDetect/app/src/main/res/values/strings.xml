@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">GeoDetect</string>
+    <string name="map_title">Photo Location</string>
+    <string name="full_metadata_title">Full Metadata</string>
+
+    <string name="welcome_title">GeoDetect</string>
+    <string name="welcome_subtitle">Photo metadata &amp; geolocation analyzer</string>
+    <string name="pick_photo">Select Photo</string>
+    <string name="take_photo">Take Photo</string>
+    <string name="drop_hint">Tap the button below to select an image for analysis</string>
+
+    <string name="section_location">Location</string>
+    <string name="section_datetime">Date &amp; Time</string>
+    <string name="section_camera">Camera</string>
+    <string name="section_image">Image</string>
+    <string name="section_edit_detection">Edit Detection</string>
+    <string name="section_software">Software</string>
+
+    <string name="label_latitude">Latitude</string>
+    <string name="label_longitude">Longitude</string>
+    <string name="label_altitude">Altitude</string>
+    <string name="label_date_taken">Date Taken</string>
+    <string name="label_date_modified">Date Modified</string>
+    <string name="label_date_digitized">Date Digitized</string>
+    <string name="label_gps_date">GPS Date</string>
+    <string name="label_gps_time">GPS Time</string>
+    <string name="label_camera">Camera</string>
+    <string name="label_lens">Lens</string>
+    <string name="label_focal_length">Focal Length</string>
+    <string name="label_aperture">Aperture</string>
+    <string name="label_iso">ISO</string>
+    <string name="label_exposure">Exposure</string>
+    <string name="label_flash">Flash</string>
+    <string name="label_white_balance">White Balance</string>
+    <string name="label_resolution">Resolution</string>
+    <string name="label_orientation">Orientation</string>
+    <string name="label_color_space">Color Space</string>
+    <string name="label_file_name">File Name</string>
+    <string name="label_file_size">File Size</string>
+    <string name="label_mime_type">Type</string>
+    <string name="label_software">Software</string>
+    <string name="label_compression">Compression</string>
+
+    <string name="view_on_map">View on Map</string>
+    <string name="view_full_metadata">View All Metadata</string>
+    <string name="analyze_another">Analyze Another Photo</string>
+    <string name="no_location">No location data available</string>
+    <string name="no_data">N/A</string>
+
+    <string name="edit_likely">Likely Edited</string>
+    <string name="edit_unlikely">Likely Original</string>
+    <string name="edit_unknown">Cannot Determine</string>
+    <string name="confidence">Confidence</string>
+    <string name="editing_software">Editing Software</string>
+    <string name="reasons">Analysis Details</string>
+
+    <string name="loading">Analyzing photo…</string>
+    <string name="error_loading">Error loading photo</string>
+    <string name="share_results">Share Results</string>
+</resources>
