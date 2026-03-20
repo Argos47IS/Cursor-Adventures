@@ -3,15 +3,28 @@ Web scraper for Telegram channel statistics.
 
 Scrapes public pages of TGStat.ru and Telemetr.me without paid APIs.
 Uses Playwright with stealth patches to bypass anti-bot protection.
+
+TGStat structure:
+  - div.peer-item-row cards
+  - Link: /channel/@username/stat
+  - Title: div.text-truncate.font-16
+  - Subscribers: h4 inside stats columns
+  - No daily growth on ratings page
+
+Telemetr structure:
+  - <table> with <tr> rows
+  - td[0]: channel info (.catalog-table-cell__about-link for name, @username)
+  - td[1]: subscriber count
+  - td[4]: daily subscriber growth (when sorted by growth)
+  - td[10]: category
 """
 
 import asyncio
-import json
 import logging
 import os
 import random
 import re
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass
 from typing import Optional
 
 from playwright.async_api import async_playwright, Page, BrowserContext
@@ -62,7 +75,6 @@ USER_AGENTS = [
 
 
 async def create_stealth_context(playwright) -> tuple:
-    """Launch Chromium with anti-detection settings."""
     browser = await playwright.chromium.launch(
         headless=True,
         args=[
@@ -102,7 +114,6 @@ def _save_debug(name: str, html: str):
 # ---------------------------------------------------------------------------
 
 def parse_number(text: str) -> Optional[int]:
-    """Parse subscriber count from various formats: '15.2K', '15 200', '15,200'."""
     if not text:
         return None
     text = text.strip().replace("\xa0", " ").replace("\u202f", " ")
@@ -123,17 +134,14 @@ def parse_number(text: str) -> Optional[int]:
         except ValueError:
             pass
 
-    m = re.search(r"[\d\s,]+", text)
-    if m:
-        num = m.group(0).replace(" ", "").replace(",", "")
-        if num.isdigit():
-            return int(num)
+    clean = re.sub(r"[^\d]", "", text)
+    if clean and clean.isdigit():
+        return int(clean)
 
     return None
 
 
 def parse_growth(text: str) -> Optional[int]:
-    """Parse growth: '+320', '-15', '↑320', '↓15', '▲ 320'."""
     if not text:
         return None
     text = text.strip().replace("\xa0", " ").replace("\u202f", " ")
@@ -145,29 +153,10 @@ def parse_growth(text: str) -> Optional[int]:
         if num.isdigit():
             return sign * int(num)
 
-    m = re.search(r"(\d[\d\s,]*)", text)
-    if m:
-        num = m.group(1).replace(" ", "").replace(",", "")
-        if num.isdigit():
-            return int(num)
+    clean = re.sub(r"[^\d]", "", text)
+    if clean and clean.isdigit():
+        return int(clean)
 
-    return None
-
-
-def extract_username(href: str) -> Optional[str]:
-    """Extract Telegram username from various URL formats."""
-    if not href:
-        return None
-    patterns = [
-        r"t\.me/([A-Za-z_]\w{3,})",
-        r"tgstat\.ru/channel/@?([A-Za-z_]\w{3,})",
-        r"tgstat\.com/channel/@?([A-Za-z_]\w{3,})",
-        r"telemetr\.me/content/([A-Za-z_]\w{3,})",
-    ]
-    for p in patterns:
-        m = re.search(p, href)
-        if m:
-            return m.group(1)
     return None
 
 
@@ -176,185 +165,116 @@ def extract_username(href: str) -> Optional[str]:
 # ---------------------------------------------------------------------------
 
 TGSTAT_URLS = [
+    "https://tgstat.ru/ratings/channels/tech?sort=ci",
     "https://tgstat.ru/ratings/channels/tech?sort=members",
-    "https://tgstat.ru/ratings/channels/tech",
 ]
 
 
-async def _scrape_tgstat_page(page: Page, url: str) -> list[ChannelData]:
-    """Attempt to scrape a single TGStat ratings page."""
-    logger.info("TGStat: загрузка %s", url)
-
-    api_data: list[dict] = []
-
-    async def intercept(response):
-        ct = response.headers.get("content-type", "")
-        if "application/json" in ct:
-            try:
-                body = await response.json()
-                api_data.append({"url": response.url, "body": body})
-            except Exception:
-                pass
-
-    page.on("response", intercept)
-
+async def _load_page_with_cf_wait(page: Page, url: str, label: str) -> Optional[str]:
+    """Load a page, wait through CloudFlare challenge if needed."""
     try:
         resp = await page.goto(url, wait_until="domcontentloaded", timeout=45000)
     except Exception as e:
-        logger.warning("TGStat: не удалось загрузить %s — %s", url, e)
-        return []
+        logger.warning("%s: не удалось загрузить %s — %s", label, url, e)
+        return None
 
     if resp and resp.status >= 400:
-        logger.warning("TGStat: HTTP %s для %s", resp.status, url)
-        return []
+        logger.warning("%s: HTTP %s для %s", label, resp.status, url)
+        return None
 
     await page.wait_for_timeout(4000)
 
-    # Scroll to trigger lazy loading
-    for _ in range(3):
-        await page.evaluate("window.scrollBy(0, window.innerHeight)")
-        await page.wait_for_timeout(1500)
-
     html = await page.content()
-
-    # Check for CloudFlare challenge
     if "cf-browser-verification" in html or "challenge-platform" in html:
-        logger.warning("TGStat: обнаружена CloudFlare-проверка, ожидание…")
-        await page.wait_for_timeout(8000)
+        logger.info("%s: CloudFlare-проверка, ожидание 10с…", label)
+        await page.wait_for_timeout(10000)
         html = await page.content()
         if "cf-browser-verification" in html:
-            logger.error("TGStat: не удалось пройти CloudFlare")
-            _save_debug("tgstat_cf_block", html)
-            return []
+            logger.warning("%s: не удалось пройти CloudFlare", label)
+            _save_debug(f"{label}_cf_block", html)
+            return None
 
-    _save_debug("tgstat_page", html)
+    # Scroll to trigger lazy-loaded content
+    for _ in range(3):
+        await page.evaluate("window.scrollBy(0, window.innerHeight)")
+        await page.wait_for_timeout(1200)
 
-    # Strategy 1: JSON from intercepted API responses
-    channels = _parse_tgstat_json(api_data)
-    if channels:
-        logger.info("TGStat: получено %d каналов из JSON API", len(channels))
-        return channels
-
-    # Strategy 2: Parse HTML
-    channels = _parse_tgstat_html(html)
-    if channels:
-        logger.info("TGStat: получено %d каналов из HTML", len(channels))
-        return channels
-
-    logger.warning("TGStat: не удалось извлечь каналы из %s", url)
-    return []
-
-
-def _parse_tgstat_json(api_data: list[dict]) -> list[ChannelData]:
-    """Try to extract channel data from intercepted JSON responses."""
-    channels = []
-    for entry in api_data:
-        body = entry.get("body")
-        if not body:
-            continue
-
-        items = []
-        if isinstance(body, list):
-            items = body
-        elif isinstance(body, dict):
-            for key in ("items", "channels", "data", "response"):
-                if key in body and isinstance(body[key], list):
-                    items = body[key]
-                    break
-
-        for item in items:
-            if not isinstance(item, dict):
-                continue
-            title = item.get("title") or item.get("name") or item.get("channel_name", "")
-            username = item.get("username") or item.get("link", "")
-            subs = item.get("participants_count") or item.get("subscribers") or item.get("members_count", 0)
-            growth = item.get("daily_reach") or item.get("members_growth") or item.get("growth")
-
-            if title and subs:
-                if isinstance(username, str):
-                    username = username.lstrip("@").split("/")[-1]
-                channels.append(ChannelData(
-                    title=str(title),
-                    username=str(username),
-                    subscribers=int(subs),
-                    growth_24h=int(growth) if growth else None,
-                    source="tgstat",
-                ))
-    return channels
+    return await page.content()
 
 
 def _parse_tgstat_html(html: str) -> list[ChannelData]:
-    """Parse TGStat ratings HTML with multiple selector strategies."""
+    """
+    Parse TGStat ratings HTML.
+
+    Each channel is in a div.peer-item-row card containing:
+    - Link to /channel/@username/stat
+    - div.text-truncate.font-16 = channel title
+    - h4 tags = numbers (subscribers, reach, CI)
+    """
     soup = BeautifulSoup(html, "lxml")
     channels = []
 
-    # Strategy A: look for links to tgstat.ru/channel/@ and extract surrounding data
-    for link in soup.find_all("a", href=True):
-        href = link["href"]
-        username = extract_username(href)
-        if not username:
+    cards = soup.find_all("div", class_="peer-item-row")
+    if not cards:
+        logger.warning("TGStat: не найдены div.peer-item-row карточки")
+        return []
+
+    for card in cards:
+        link = card.find("a", href=re.compile(r"/channel/@"))
+        if not link:
             continue
 
-        title = link.get_text(strip=True)
-        if not title or len(title) < 2:
-            parent = link.find_parent(["div", "tr", "li", "article"])
-            if parent:
-                name_el = parent.find(["h3", "h4", "h5", "span", "b", "strong"])
-                if name_el:
-                    title = name_el.get_text(strip=True)
+        m = re.search(r"@(\w+)", link["href"])
+        if not m:
+            continue
+        username = m.group(1)
 
-        if not title or len(title) < 2:
+        title_el = card.find("div", class_=lambda c: c and "font-16" in c and "text-truncate" in c)
+        title = title_el.get_text(strip=True) if title_el else username
+
+        h4_tags = card.find_all("h4")
+        subscribers = None
+        if h4_tags:
+            subscribers = parse_number(h4_tags[0].get_text(strip=True))
+
+        if not subscribers:
+            sub_div = card.find("div", class_=lambda c: c and "font-14" in c and "text-truncate" in c)
+            if sub_div:
+                subscribers = parse_number(sub_div.get_text(strip=True))
+
+        if subscribers is None:
             continue
 
-        container = link.find_parent(["div", "tr", "li", "article", "section"])
-        if not container:
-            continue
+        channels.append(ChannelData(
+            title=title,
+            username=username,
+            subscribers=subscribers,
+            growth_24h=None,
+            source="tgstat",
+        ))
 
-        all_text = container.get_text(" ", strip=True)
-
-        subs = None
-        growth = None
-
-        nums = re.findall(r"[\d\s]{3,}[KkКк]?", all_text)
-        for n in nums:
-            parsed = parse_number(n)
-            if parsed and parsed >= 100 and subs is None:
-                subs = parsed
-                break
-
-        growth_patterns = re.findall(r"[+\-−↑↓▲▼]\s*[\d\s,]+", all_text)
-        for g in growth_patterns:
-            parsed = parse_growth(g)
-            if parsed is not None:
-                growth = parsed
-                break
-
-        if subs and subs >= 100:
-            channels.append(ChannelData(
-                title=title,
-                username=username,
-                subscribers=subs,
-                growth_24h=growth,
-                source="tgstat",
-            ))
-
-    seen = set()
-    unique = []
-    for ch in channels:
-        if ch.username.lower() not in seen:
-            seen.add(ch.username.lower())
-            unique.append(ch)
-    return unique
+    return channels
 
 
 async def scrape_tgstat(page: Page) -> list[ChannelData]:
-    """Try all TGStat URLs, return first successful result."""
+    all_channels: list[ChannelData] = []
     for url in TGSTAT_URLS:
-        result = await _scrape_tgstat_page(page, url)
-        if result:
-            return result
+        logger.info("TGStat: загрузка %s", url)
+        html = await _load_page_with_cf_wait(page, url, "tgstat")
+        if not html:
+            continue
+
+        _save_debug("tgstat_page", html)
+        channels = _parse_tgstat_html(html)
+        if channels:
+            logger.info("TGStat: получено %d каналов с %s", len(channels), url)
+            all_channels.extend(channels)
+        else:
+            logger.warning("TGStat: 0 каналов из %s", url)
+
         await asyncio.sleep(random.uniform(2, 4))
-    return []
+
+    return all_channels
 
 
 # ---------------------------------------------------------------------------
@@ -363,176 +283,96 @@ async def scrape_tgstat(page: Page) -> list[ChannelData]:
 
 TELEMETR_URLS = [
     "https://telemetr.me/catalog/IT?sort=subscribers_growth_per_day_desc",
-    "https://telemetr.me/catalog/IT",
+    "https://telemetr.me/catalog/IT?sort=subscribers_count_desc",
 ]
 
 
-async def _scrape_telemetr_page(page: Page, url: str) -> list[ChannelData]:
-    """Scrape a single Telemetr.me catalog page."""
-    logger.info("Telemetr: загрузка %s", url)
-
-    api_data: list[dict] = []
-
-    async def intercept(response):
-        ct = response.headers.get("content-type", "")
-        if "application/json" in ct:
-            try:
-                body = await response.json()
-                api_data.append({"url": response.url, "body": body})
-            except Exception:
-                pass
-
-    page.on("response", intercept)
-
-    try:
-        resp = await page.goto(url, wait_until="domcontentloaded", timeout=45000)
-    except Exception as e:
-        logger.warning("Telemetr: не удалось загрузить %s — %s", url, e)
-        return []
-
-    if resp and resp.status >= 400:
-        logger.warning("Telemetr: HTTP %s для %s", resp.status, url)
-        return []
-
-    await page.wait_for_timeout(4000)
-
-    for _ in range(3):
-        await page.evaluate("window.scrollBy(0, window.innerHeight)")
-        await page.wait_for_timeout(1500)
-
-    html = await page.content()
-    _save_debug("telemetr_page", html)
-
-    # Strategy 1: intercepted JSON
-    channels = _parse_telemetr_json(api_data)
-    if channels:
-        logger.info("Telemetr: получено %d каналов из JSON API", len(channels))
-        return channels
-
-    # Strategy 2: HTML parsing
-    channels = _parse_telemetr_html(html)
-    if channels:
-        logger.info("Telemetr: получено %d каналов из HTML", len(channels))
-        return channels
-
-    logger.warning("Telemetr: не удалось извлечь каналы из %s", url)
-    return []
-
-
-def _parse_telemetr_json(api_data: list[dict]) -> list[ChannelData]:
-    channels = []
-    for entry in api_data:
-        body = entry.get("body")
-        if not body:
-            continue
-
-        items = []
-        if isinstance(body, list):
-            items = body
-        elif isinstance(body, dict):
-            for key in ("items", "channels", "data", "results", "list"):
-                if key in body and isinstance(body[key], list):
-                    items = body[key]
-                    break
-
-        for item in items:
-            if not isinstance(item, dict):
-                continue
-            title = item.get("title") or item.get("name") or item.get("channel_name", "")
-            username = item.get("username") or item.get("tg_id") or item.get("link", "")
-            subs = item.get("subscribers") or item.get("participants_count") or item.get("members", 0)
-            growth = (
-                item.get("subscribers_growth_per_day")
-                or item.get("growth")
-                or item.get("daily_growth")
-            )
-
-            if title and subs:
-                if isinstance(username, str):
-                    username = username.lstrip("@").split("/")[-1]
-                channels.append(ChannelData(
-                    title=str(title),
-                    username=str(username),
-                    subscribers=int(subs),
-                    growth_24h=int(growth) if growth else None,
-                    source="telemetr",
-                ))
-    return channels
-
-
 def _parse_telemetr_html(html: str) -> list[ChannelData]:
-    """Parse Telemetr.me catalog HTML."""
+    """
+    Parse Telemetr.me catalog HTML.
+
+    Structure: <table> → <tr> rows → <td> cells:
+      td[0]: channel info (rank, name, "Подписчиков X", @username)
+             — name inside a.catalog-table-cell__about-link
+      td[1]: subscriber count (plain number)
+      td[4]: daily subscriber growth (plain number)
+      td[10]: category
+    """
     soup = BeautifulSoup(html, "lxml")
     channels = []
 
-    for link in soup.find_all("a", href=True):
-        href = link["href"]
-        username = None
+    rows = soup.find_all("tr")
+    if not rows:
+        logger.warning("Telemetr: не найдены <tr> строки")
+        return []
 
-        if "t.me/" in href or "/content/" in href or "/channel/" in href:
-            username = extract_username(href)
-        if not username:
+    for tr in rows:
+        tds = tr.find_all("td")
+        if len(tds) < 5:
             continue
 
-        title = link.get_text(strip=True)
-        if not title or len(title) < 2:
-            parent = link.find_parent(["div", "tr", "li", "article"])
-            if parent:
-                name_el = parent.find(["h3", "h4", "h5", "span", "b", "strong"])
-                if name_el:
-                    title = name_el.get_text(strip=True)
+        # td[0]: channel info
+        info_cell = tds[0]
 
-        if not title or len(title) < 2:
+        name_link = info_cell.find("a", class_=re.compile("about-link"))
+        if not name_link:
             continue
 
-        container = link.find_parent(["div", "tr", "li", "article", "section"])
-        if not container:
+        title = name_link.get_text(strip=True)
+        href = name_link.get("href", "")
+        username = href.strip("/").lstrip("@")
+        if not username or not title:
             continue
 
-        all_text = container.get_text(" ", strip=True)
+        # td[1]: subscribers
+        subs_text = tds[1].get_text(strip=True) if len(tds) > 1 else ""
+        subscribers = parse_number(subs_text)
+        if subscribers is None:
+            info_text = info_cell.get_text(" ", strip=True)
+            m = re.search(r"Подписчиков\s+([\d\s]+)", info_text)
+            if m:
+                subscribers = parse_number(m.group(1))
 
-        subs = None
+        if subscribers is None:
+            continue
+
+        # td[4]: daily subscriber growth
         growth = None
+        if len(tds) > 4:
+            growth_text = tds[4].get_text(strip=True)
+            if growth_text and "Доступно" not in growth_text:
+                growth = parse_number(growth_text)
 
-        nums = re.findall(r"[\d\s]{3,}[KkКк]?", all_text)
-        for n in nums:
-            parsed = parse_number(n)
-            if parsed and parsed >= 100 and subs is None:
-                subs = parsed
-                break
+        channels.append(ChannelData(
+            title=title,
+            username=username,
+            subscribers=subscribers,
+            growth_24h=growth,
+            source="telemetr",
+        ))
 
-        growth_patterns = re.findall(r"[+\-−↑↓▲▼]\s*[\d\s,]+", all_text)
-        for g in growth_patterns:
-            parsed = parse_growth(g)
-            if parsed is not None:
-                growth = parsed
-                break
-
-        if subs and subs >= 100:
-            channels.append(ChannelData(
-                title=title,
-                username=username,
-                subscribers=subs,
-                growth_24h=growth,
-                source="telemetr",
-            ))
-
-    seen = set()
-    unique = []
-    for ch in channels:
-        if ch.username.lower() not in seen:
-            seen.add(ch.username.lower())
-            unique.append(ch)
-    return unique
+    return channels
 
 
 async def scrape_telemetr(page: Page) -> list[ChannelData]:
+    all_channels: list[ChannelData] = []
     for url in TELEMETR_URLS:
-        result = await _scrape_telemetr_page(page, url)
-        if result:
-            return result
+        logger.info("Telemetr: загрузка %s", url)
+        html = await _load_page_with_cf_wait(page, url, "telemetr")
+        if not html:
+            continue
+
+        _save_debug("telemetr_page", html)
+        channels = _parse_telemetr_html(html)
+        if channels:
+            logger.info("Telemetr: получено %d каналов с %s", len(channels), url)
+            all_channels.extend(channels)
+        else:
+            logger.warning("Telemetr: 0 каналов из %s", url)
+
         await asyncio.sleep(random.uniform(2, 4))
-    return []
+
+    return all_channels
 
 
 # ---------------------------------------------------------------------------
@@ -542,7 +382,7 @@ async def scrape_telemetr(page: Page) -> list[ChannelData]:
 async def scrape_all(min_subs: int = 5000, max_subs: int = 40000) -> list[ChannelData]:
     """
     Scrape channels from all available sources.
-    Returns channels filtered to the given subscriber range, sorted by subscribers desc.
+    Returns channels filtered to [min_subs, max_subs], sorted by subscribers desc.
     """
     async with async_playwright() as pw:
         browser, context = await create_stealth_context(pw)
@@ -550,21 +390,17 @@ async def scrape_all(min_subs: int = 5000, max_subs: int = 40000) -> list[Channe
 
         all_channels: list[ChannelData] = []
 
-        # Source 1: TGStat
         try:
             tg_channels = await scrape_tgstat(page)
             all_channels.extend(tg_channels)
-            logger.info("TGStat: итого %d каналов", len(tg_channels))
         except Exception as e:
             logger.error("TGStat: ошибка — %s", e, exc_info=True)
 
         await asyncio.sleep(random.uniform(3, 6))
 
-        # Source 2: Telemetr.me
         try:
             tm_channels = await scrape_telemetr(page)
             all_channels.extend(tm_channels)
-            logger.info("Telemetr: итого %d каналов", len(tm_channels))
         except Exception as e:
             logger.error("Telemetr: ошибка — %s", e, exc_info=True)
 
@@ -576,11 +412,14 @@ async def scrape_all(min_subs: int = 5000, max_subs: int = 40000) -> list[Channe
         if min_subs <= ch.subscribers <= max_subs
     ]
 
-    # Deduplicate (prefer tgstat data when duplicated)
-    seen = {}
+    # Deduplicate by username; prefer entry that has growth data
+    seen: dict[str, ChannelData] = {}
     for ch in filtered:
         key = ch.username.lower()
-        if key not in seen:
+        existing = seen.get(key)
+        if existing is None:
+            seen[key] = ch
+        elif ch.growth_24h is not None and existing.growth_24h is None:
             seen[key] = ch
 
     result = sorted(seen.values(), key=lambda c: c.subscribers, reverse=True)
