@@ -17,7 +17,7 @@ from datetime import datetime, timezone, timedelta
 from dotenv import load_dotenv
 
 import db
-from scraper import ChannelData
+from common import ChannelData
 from notifier import send_report
 
 load_dotenv()

@@ -17,13 +17,7 @@ from typing import Optional
 import httpx
 from bs4 import BeautifulSoup
 
-from scraper import (
-    ChannelData,
-    parse_number,
-    parse_growth,
-    DEBUG_DIR,
-    _save_debug,
-)
+from common import ChannelData, parse_number, parse_growth, save_debug_html, DEBUG_DIR
 
 logger = logging.getLogger(__name__)
 
@@ -167,7 +161,7 @@ async def scrape_all(min_subs: int = 5000, max_subs: int = 40000) -> list[Channe
             logger.info("Telemetr (lite): загрузка %s", url)
             html = await _fetch(client, url, "telemetr")
             if html:
-                _save_debug("telemetr_lite", html)
+                save_debug_html("telemetr_lite", html)
                 channels = _parse_telemetr_html(html)
                 logger.info("Telemetr (lite): %d каналов с %s", len(channels), url)
                 all_channels.extend(channels)
@@ -178,7 +172,7 @@ async def scrape_all(min_subs: int = 5000, max_subs: int = 40000) -> list[Channe
             logger.info("TGStat (lite): загрузка %s", url)
             html = await _fetch(client, url, "tgstat")
             if html and "peer-item-row" in html:
-                _save_debug("tgstat_lite", html)
+                save_debug_html("tgstat_lite", html)
                 channels = _parse_tgstat_html(html)
                 logger.info("TGStat (lite): %d каналов с %s", len(channels), url)
                 all_channels.extend(channels)
