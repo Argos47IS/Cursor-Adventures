@@ -4,6 +4,7 @@ Main orchestrator: scrape → filter → save → notify.
 Usage:
     python collector.py              Run full collection cycle
     python collector.py --dry-run    Scrape only, no Telegram notification
+    python collector.py --lite       Force lightweight mode (no Playwright)
 """
 
 import asyncio
@@ -16,7 +17,7 @@ from datetime import datetime, timezone, timedelta
 from dotenv import load_dotenv
 
 import db
-from scraper import scrape_all, ChannelData
+from scraper import ChannelData
 from notifier import send_report
 
 load_dotenv()
@@ -78,7 +79,25 @@ def print_table(channels: list[ChannelData]):
     print()
 
 
-async def run_collection(dry_run: bool = False):
+def _pick_scraper(force_lite: bool = False):
+    """Auto-detect available scraper: full (Playwright) or lite (httpx only)."""
+    if force_lite:
+        logger.info("Режим: lite (httpx, без Playwright)")
+        from scraper_lite import scrape_all
+        return scrape_all
+
+    try:
+        from playwright.async_api import async_playwright  # noqa: F401
+        logger.info("Режим: full (Playwright + httpx)")
+        from scraper import scrape_all
+        return scrape_all
+    except ImportError:
+        logger.info("Playwright не установлен — переключение на lite-режим (httpx)")
+        from scraper_lite import scrape_all
+        return scrape_all
+
+
+async def run_collection(dry_run: bool = False, force_lite: bool = False):
     """Main collection routine."""
     db.init_db()
 
@@ -89,7 +108,7 @@ async def run_collection(dry_run: bool = False):
     logger.info("=== Сбор статистики: %s МСК ===", now.strftime("%Y-%m-%d %H:%M"))
     logger.info("Диапазон подписчиков: %d – %d", min_subs, max_subs)
 
-    # Scrape channels from TGStat and Telemetr
+    scrape_all = _pick_scraper(force_lite)
     channels = await scrape_all(min_subs=min_subs, max_subs=max_subs)
 
     if not channels:
@@ -128,7 +147,8 @@ async def run_collection(dry_run: bool = False):
 
 def main():
     dry_run = "--dry-run" in sys.argv
-    asyncio.run(run_collection(dry_run=dry_run))
+    force_lite = "--lite" in sys.argv
+    asyncio.run(run_collection(dry_run=dry_run, force_lite=force_lite))
 
 
 if __name__ == "__main__":
