@@ -4,15 +4,21 @@ venv/
 __pycache__/
 *.pyc
 
-# Telegram session
+# Telegram session (legacy)
 tg_session.session
 *.session
 
 # Database
 channel_stats.db
 
-# Reports (optional — remove this line to track reports in git)
+# Reports
 reports/
+
+# Debug output
+debug/
 
 # Logs
 *.log
+
+# Playwright browsers cached locally
+pw-browsers/

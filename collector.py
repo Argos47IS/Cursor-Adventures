@@ -1,29 +1,23 @@
 """
-Telegram Channel Statistics Collector
+Main orchestrator: scrape → filter → save → notify.
 
-Collects subscriber counts from a list of Telegram channels,
-calculates 24-hour growth, and saves results to CSV and SQLite.
+Usage:
+    python collector.py              Run full collection cycle
+    python collector.py --dry-run    Scrape only, no Telegram notification
 """
 
 import asyncio
 import csv
-import json
 import logging
 import os
 import sys
 from datetime import datetime, timezone, timedelta
 
-from telethon import TelegramClient
-from telethon.tl.functions.channels import GetFullChannelRequest
-from telethon.errors import (
-    ChannelPrivateError,
-    UsernameNotOccupiedError,
-    UsernameInvalidError,
-    FloodWaitError,
-)
 from dotenv import load_dotenv
 
 import db
+from scraper import scrape_all, ChannelData
+from notifier import send_report
 
 load_dotenv()
 
@@ -41,174 +35,100 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 MSK = timezone(timedelta(hours=3))
-
-MIN_SUBSCRIBERS = 5_000
-MAX_SUBSCRIBERS = 40_000
-
-CHANNELS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "channels.json")
 OUTPUT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "reports")
-SESSION_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "tg_session")
 
 
-def load_channels() -> list[str]:
-    with open(CHANNELS_FILE, "r", encoding="utf-8") as f:
-        data = json.load(f)
-
-    channels = []
-    for ch in data["channels"]:
-        username = ch.strip().lstrip("@")
-        if username:
-            channels.append(username)
-    return channels
-
-
-async def fetch_channel_info(client: TelegramClient, username: str) -> dict | None:
-    """Fetch subscriber count and title for a single channel."""
-    try:
-        entity = await client.get_entity(f"@{username}")
-        full = await client(GetFullChannelRequest(entity))
-
-        title = entity.title
-        subscribers = full.full_chat.participants_count
-
-        return {
-            "username": username,
-            "title": title,
-            "subscribers": subscribers,
-        }
-
-    except (ChannelPrivateError, UsernameNotOccupiedError, UsernameInvalidError) as e:
-        logger.warning("Канал @%s недоступен: %s", username, e)
-        return None
-    except FloodWaitError as e:
-        logger.warning("Flood wait %d секунд для @%s, ждём...", e.seconds, username)
-        await asyncio.sleep(e.seconds + 1)
-        return await fetch_channel_info(client, username)
-    except Exception as e:
-        logger.error("Ошибка при получении данных @%s: %s", username, e)
-        return None
-
-
-def build_report_row(info: dict, now: datetime) -> dict:
-    """Build a single report row with growth calculation."""
-    prev = db.get_previous_snapshot(info["username"], now)
-
-    growth_24h = None
-    if prev:
-        growth_24h = info["subscribers"] - prev["subscribers"]
-
-    return {
-        "Канал": info["title"],
-        "Username": f"@{info['username']}",
-        "Подписчики": info["subscribers"],
-        "Прирост за 24ч": growth_24h if growth_24h is not None else "нет данных",
-    }
-
-
-def save_csv(rows: list[dict], now: datetime):
+def save_csv(channels: list[ChannelData], now: datetime) -> str:
+    """Save report to CSV, return file path."""
     os.makedirs(OUTPUT_DIR, exist_ok=True)
     date_str = now.strftime("%Y-%m-%d_%H-%M")
     filepath = os.path.join(OUTPUT_DIR, f"report_{date_str}.csv")
 
     with open(filepath, "w", newline="", encoding="utf-8-sig") as f:
-        writer = csv.DictWriter(f, fieldnames=["Канал", "Username", "Подписчики", "Прирост за 24ч"])
-        writer.writeheader()
-        writer.writerows(rows)
+        writer = csv.writer(f)
+        writer.writerow(["Канал", "Username", "Подписчики", "Прирост за 24ч", "Источник"])
+        for ch in channels:
+            growth = ch.growth_24h if ch.growth_24h is not None else "нет данных"
+            writer.writerow([ch.title, f"@{ch.username}", ch.subscribers, growth, ch.source])
 
-    logger.info("Отчёт сохранён: %s", filepath)
+    logger.info("CSV сохранён: %s", filepath)
     return filepath
 
 
-def print_table(rows: list[dict]):
-    if not rows:
-        logger.info("Нет подходящих каналов для отображения.")
+def print_table(channels: list[ChannelData]):
+    if not channels:
         return
 
-    col_widths = {}
-    for key in rows[0]:
-        col_widths[key] = max(len(str(key)), max(len(str(r[key])) for r in rows))
+    rows = []
+    for i, ch in enumerate(channels, 1):
+        growth = f"{ch.growth_24h:+d}" if ch.growth_24h is not None else "—"
+        rows.append([str(i), ch.title[:30], f"@{ch.username}", f"{ch.subscribers:,}", growth])
 
-    header = " | ".join(k.ljust(col_widths[k]) for k in rows[0])
-    separator = "-+-".join("-" * col_widths[k] for k in rows[0])
+    widths = [max(len(r[j]) for r in rows) for j in range(5)]
+    headers = ["#", "Канал", "Username", "Подписчики", "Прирост"]
+    widths = [max(w, len(h)) for w, h in zip(widths, headers)]
 
-    print(f"\n{header}")
-    print(separator)
-    for row in rows:
-        line = " | ".join(str(row[k]).ljust(col_widths[k]) for k in row)
-        print(line)
+    fmt = " | ".join(f"{{:<{w}}}" for w in widths)
+    sep = "-+-".join("-" * w for w in widths)
+
+    print(f"\n{fmt.format(*headers)}")
+    print(sep)
+    for r in rows:
+        print(fmt.format(*r))
     print()
 
 
-async def run_collection():
+async def run_collection(dry_run: bool = False):
     """Main collection routine."""
-    api_id = os.getenv("TELEGRAM_API_ID")
-    api_hash = os.getenv("TELEGRAM_API_HASH")
-
-    if not api_id or not api_hash:
-        logger.error(
-            "Установите TELEGRAM_API_ID и TELEGRAM_API_HASH в файле .env "
-            "(получить на https://my.telegram.org/apps)"
-        )
-        sys.exit(1)
-
     db.init_db()
 
+    min_subs = int(os.getenv("MIN_SUBSCRIBERS", "5000"))
+    max_subs = int(os.getenv("MAX_SUBSCRIBERS", "40000"))
     now = datetime.now(MSK)
-    logger.info("=== Сбор статистики каналов: %s МСК ===", now.strftime("%Y-%m-%d %H:%M"))
 
-    channels = load_channels()
-    logger.info("Каналов для проверки: %d", len(channels))
+    logger.info("=== Сбор статистики: %s МСК ===", now.strftime("%Y-%m-%d %H:%M"))
+    logger.info("Диапазон подписчиков: %d – %d", min_subs, max_subs)
 
-    client = TelegramClient(SESSION_FILE, int(api_id), api_hash)
-    await client.start(phone=os.getenv("TELEGRAM_PHONE"))
+    # Scrape channels from TGStat and Telemetr
+    channels = await scrape_all(min_subs=min_subs, max_subs=max_subs)
 
-    report_rows = []
-    collected = 0
-    skipped_range = 0
+    if not channels:
+        logger.warning("Ни один канал не найден. Проверьте debug/ на предмет ошибок.")
+        if not dry_run:
+            await send_report([], now.strftime("%d.%m.%Y %H:%M"), None)
+        return
 
-    for username in channels:
-        info = await fetch_channel_info(client, username)
-        if info is None:
-            continue
+    # Save snapshots to DB for historical tracking
+    for ch in channels:
+        db.save_snapshot(ch.username, ch.title, ch.subscribers, now)
 
-        if info["subscribers"] < MIN_SUBSCRIBERS or info["subscribers"] > MAX_SUBSCRIBERS:
-            logger.info(
-                "  @%s (%s) — %d подписчиков, вне диапазона %d–%d, пропускаем",
-                username, info["title"], info["subscribers"], MIN_SUBSCRIBERS, MAX_SUBSCRIBERS,
-            )
-            skipped_range += 1
-            db.save_snapshot(info["username"], info["title"], info["subscribers"], now)
-            continue
+    # Enrich growth from DB if scraper didn't provide it
+    for ch in channels:
+        if ch.growth_24h is None:
+            prev = db.get_previous_snapshot(ch.username, now)
+            if prev:
+                ch.growth_24h = ch.subscribers - prev["subscribers"]
 
-        db.save_snapshot(info["username"], info["title"], info["subscribers"], now)
-        row = build_report_row(info, now)
-        report_rows.append(row)
-        collected += 1
+    # Print to console
+    print_table(channels)
 
-        await asyncio.sleep(1.5)
+    # Save CSV
+    csv_path = save_csv(channels, now)
 
-    report_rows.sort(key=lambda r: r["Подписчики"], reverse=True)
-
-    logger.info(
-        "Собрано: %d каналов в диапазоне, %d вне диапазона",
-        collected, skipped_range,
-    )
-
-    if report_rows:
-        csv_path = save_csv(report_rows, now)
-        print_table(report_rows)
-        logger.info("CSV: %s", csv_path)
+    # Send Telegram notification
+    if not dry_run:
+        date_str = now.strftime("%d.%m.%Y %H:%M")
+        await send_report(channels, date_str, csv_path)
     else:
-        logger.info("Подходящих каналов не найдено.")
+        logger.info("Dry run — Telegram-уведомление пропущено")
 
     db.cleanup_old_data(days_to_keep=30)
-
-    await client.disconnect()
-    logger.info("=== Сбор завершён ===")
+    logger.info("=== Сбор завершён: %d каналов ===", len(channels))
 
 
 def main():
-    asyncio.run(run_collection())
+    dry_run = "--dry-run" in sys.argv
+    asyncio.run(run_collection(dry_run=dry_run))
 
 
 if __name__ == "__main__":

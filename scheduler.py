@@ -4,11 +4,12 @@ Scheduler: runs the collector every day at 16:00 MSK.
 Usage:
     python scheduler.py          — start the scheduler (runs indefinitely)
     python collector.py          — run a single collection immediately
+    python collector.py --dry-run — run without sending Telegram notification
 """
 
 import logging
 import sys
-from datetime import datetime, timezone, timedelta
+from datetime import timezone, timedelta
 
 from apscheduler.schedulers.blocking import BlockingScheduler
 from apscheduler.triggers.cron import CronTrigger
@@ -26,7 +27,7 @@ MSK = timezone(timedelta(hours=3))
 
 
 def job():
-    logger.info("Запуск сбора статистики по расписанию...")
+    logger.info("Запуск сбора статистики по расписанию…")
     try:
         run_collector()
     except Exception as e:
