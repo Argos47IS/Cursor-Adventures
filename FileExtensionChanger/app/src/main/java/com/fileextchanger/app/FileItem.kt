@@ -7,7 +7,8 @@ data class FileItem(
     val originalName: String,
     val size: Long,
     val newExtension: String = "",
-    val isProcessed: Boolean = false
+    val isProcessed: Boolean = false,
+    val errorMessage: String? = null
 ) {
     val currentExtension: String
         get() {

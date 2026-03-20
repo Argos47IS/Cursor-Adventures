@@ -1,5 +1,7 @@
 package com.fileextchanger.app.ui
 
+import android.Manifest
+import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.*
@@ -14,17 +16,31 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.fileextchanger.app.MainViewModel
+import com.fileextchanger.app.R
 import com.fileextchanger.app.ui.components.FileItemCard
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainScreen(viewModel: MainViewModel) {
     val context = LocalContext.current
+
+    var hasStoragePermission by remember {
+        mutableStateOf(
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q
+        )
+    }
+
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        hasStoragePermission = granted
+    }
 
     val filePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenMultipleDocuments()
@@ -34,17 +50,35 @@ fun MainScreen(viewModel: MainViewModel) {
         }
     }
 
+    if (viewModel.showConfirmDialog) {
+        AlertDialog(
+            onDismissRequest = { viewModel.dismissConfirmDialog() },
+            title = { Text(stringResource(R.string.confirm_title)) },
+            text = { Text(stringResource(R.string.confirm_message)) },
+            confirmButton = {
+                Button(onClick = { viewModel.confirmAndProcess(context) }) {
+                    Text(stringResource(R.string.confirm_yes))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { viewModel.dismissConfirmDialog() }) {
+                    Text(stringResource(R.string.confirm_no))
+                }
+            }
+        )
+    }
+
     Scaffold(
         topBar = {
             LargeTopAppBar(
                 title = {
                     Column {
                         Text(
-                            "File Extension",
+                            stringResource(R.string.title_line1),
                             fontWeight = FontWeight.Bold
                         )
                         Text(
-                            "Changer",
+                            stringResource(R.string.title_line2),
                             fontWeight = FontWeight.Light,
                             fontSize = 20.sp,
                             color = MaterialTheme.colorScheme.primary
@@ -54,7 +88,10 @@ fun MainScreen(viewModel: MainViewModel) {
                 actions = {
                     if (viewModel.files.isNotEmpty()) {
                         IconButton(onClick = { viewModel.clearAll() }) {
-                            Icon(Icons.Filled.DeleteSweep, contentDescription = "Clear all")
+                            Icon(
+                                Icons.Filled.DeleteSweep,
+                                contentDescription = stringResource(R.string.clear_all)
+                            )
                         }
                     }
                 },
@@ -63,23 +100,69 @@ fun MainScreen(viewModel: MainViewModel) {
                 )
             )
         },
-        floatingActionButton = {
-            Column(horizontalAlignment = Alignment.End) {
-                if (viewModel.files.isNotEmpty()) {
-                    SmallFloatingActionButton(
-                        onClick = { viewModel.processFiles(context) },
-                        containerColor = MaterialTheme.colorScheme.tertiary,
-                        contentColor = MaterialTheme.colorScheme.onTertiary,
-                        modifier = Modifier.padding(bottom = 12.dp)
+        bottomBar = {
+            if (viewModel.files.isNotEmpty()) {
+                Surface(
+                    tonalElevation = 3.dp,
+                    shadowElevation = 8.dp
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 12.dp)
+                            .navigationBarsPadding(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        Icon(Icons.Filled.Check, contentDescription = "Apply")
+                        OutlinedButton(
+                            onClick = { filePickerLauncher.launch(arrayOf("*/*")) },
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Icon(
+                                Icons.Filled.Add,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(stringResource(R.string.btn_add_files))
+                        }
+
+                        Button(
+                            onClick = {
+                                if (!hasStoragePermission && Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+                                    permissionLauncher.launch(Manifest.permission.WRITE_EXTERNAL_STORAGE)
+                                } else {
+                                    viewModel.requestProcess()
+                                }
+                            },
+                            modifier = Modifier.weight(1f),
+                            enabled = !viewModel.isProcessing
+                        ) {
+                            if (viewModel.isProcessing) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(18.dp),
+                                    strokeWidth = 2.dp,
+                                    color = MaterialTheme.colorScheme.onPrimary
+                                )
+                            } else {
+                                Icon(
+                                    Icons.Filled.Save,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(stringResource(R.string.btn_save))
+                        }
                     }
                 }
-
+            }
+        },
+        floatingActionButton = {
+            if (viewModel.files.isEmpty()) {
                 ExtendedFloatingActionButton(
                     onClick = { filePickerLauncher.launch(arrayOf("*/*")) },
                     icon = { Icon(Icons.Filled.Add, contentDescription = null) },
-                    text = { Text("Add Files") },
+                    text = { Text(stringResource(R.string.btn_add_files)) },
                     containerColor = MaterialTheme.colorScheme.primary,
                     contentColor = MaterialTheme.colorScheme.onPrimary
                 )
@@ -104,7 +187,7 @@ fun MainScreen(viewModel: MainViewModel) {
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         Text(
-                            "Set extension for all files:",
+                            stringResource(R.string.global_ext_label),
                             style = MaterialTheme.typography.labelLarge,
                             color = MaterialTheme.colorScheme.onPrimaryContainer
                         )
@@ -114,7 +197,7 @@ fun MainScreen(viewModel: MainViewModel) {
                                 value = viewModel.globalExtension,
                                 onValueChange = { viewModel.updateGlobalExtension(it) },
                                 modifier = Modifier.weight(1f),
-                                placeholder = { Text("e.g. pdf, jpg, mp4") },
+                                placeholder = { Text(stringResource(R.string.global_ext_hint)) },
                                 prefix = { Text(".") },
                                 singleLine = true,
                                 shape = RoundedCornerShape(12.dp)
@@ -124,7 +207,7 @@ fun MainScreen(viewModel: MainViewModel) {
                                 onClick = { viewModel.applyGlobalExtensionToAll() },
                                 enabled = viewModel.globalExtension.isNotBlank()
                             ) {
-                                Text("Apply")
+                                Text(stringResource(R.string.btn_apply))
                             }
                         }
                     }
@@ -139,7 +222,7 @@ fun MainScreen(viewModel: MainViewModel) {
                             .padding(bottom = 16.dp),
                         shape = RoundedCornerShape(12.dp),
                         colors = CardDefaults.cardColors(
-                            containerColor = if (message.startsWith("Done"))
+                            containerColor = if (message.startsWith(context.getString(R.string.status_done)))
                                 MaterialTheme.colorScheme.tertiaryContainer
                             else
                                 MaterialTheme.colorScheme.secondaryContainer
@@ -166,6 +249,44 @@ fun MainScreen(viewModel: MainViewModel) {
                 }
             }
 
+            if (!hasStoragePermission && Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 16.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.errorContainer
+                    )
+                ) {
+                    Row(
+                        modifier = Modifier.padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            Icons.Filled.Warning,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.error
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                stringResource(R.string.permission_needed),
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+                        FilledTonalButton(
+                            onClick = {
+                                permissionLauncher.launch(Manifest.permission.WRITE_EXTERNAL_STORAGE)
+                            }
+                        ) {
+                            Text(stringResource(R.string.permission_btn))
+                        }
+                    }
+                }
+            }
+
             if (viewModel.files.isEmpty()) {
                 Box(
                     modifier = Modifier
@@ -182,13 +303,13 @@ fun MainScreen(viewModel: MainViewModel) {
                         )
                         Spacer(modifier = Modifier.height(16.dp))
                         Text(
-                            text = "No files added yet",
+                            text = stringResource(R.string.empty_title),
                             style = MaterialTheme.typography.titleMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
-                            text = "Tap \"Add Files\" to pick files\nfrom your device",
+                            text = stringResource(R.string.empty_subtitle),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.outline,
                             textAlign = TextAlign.Center
@@ -197,7 +318,7 @@ fun MainScreen(viewModel: MainViewModel) {
                 }
             } else {
                 Text(
-                    text = "${viewModel.files.size} file(s)",
+                    text = stringResource(R.string.file_count, viewModel.files.size),
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.outline,
                     modifier = Modifier.padding(bottom = 8.dp)
@@ -205,7 +326,7 @@ fun MainScreen(viewModel: MainViewModel) {
 
                 LazyColumn(
                     verticalArrangement = Arrangement.spacedBy(12.dp),
-                    contentPadding = PaddingValues(bottom = 100.dp)
+                    contentPadding = PaddingValues(bottom = 16.dp)
                 ) {
                     itemsIndexed(
                         items = viewModel.files,

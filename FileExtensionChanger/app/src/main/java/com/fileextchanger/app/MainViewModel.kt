@@ -1,6 +1,7 @@
 package com.fileextchanger.app
 
 import android.content.Context
+import android.content.Intent
 import android.net.Uri
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
@@ -28,6 +29,17 @@ class MainViewModel : ViewModel() {
     var processedCount by mutableStateOf(0)
         private set
 
+    var showConfirmDialog by mutableStateOf(false)
+        private set
+
+    fun requestProcess() {
+        showConfirmDialog = true
+    }
+
+    fun dismissConfirmDialog() {
+        showConfirmDialog = false
+    }
+
     fun updateGlobalExtension(ext: String) {
         globalExtension = ext.replace(".", "").trim()
     }
@@ -40,10 +52,15 @@ class MainViewModel : ViewModel() {
 
                 val info = FileOperations.getFileInfo(context, uri)
                 if (info != null) {
-                    context.contentResolver.takePersistableUriPermission(
-                        uri,
-                        android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION
-                    )
+                    try {
+                        context.contentResolver.takePersistableUriPermission(
+                            uri,
+                            Intent.FLAG_GRANT_READ_URI_PERMISSION
+                        )
+                    } catch (_: SecurityException) {
+                        // Share intents don't grant persistable permissions — that's fine,
+                        // the temporary read permission is enough for our use case.
+                    }
 
                     files.add(
                         FileItem(
@@ -82,15 +99,22 @@ class MainViewModel : ViewModel() {
         }
     }
 
-    fun processFiles(context: Context) {
+    fun confirmAndProcess(context: Context) {
+        showConfirmDialog = false
+        processFiles(context)
+    }
+
+    private fun processFiles(context: Context) {
         if (files.isEmpty()) {
-            statusMessage = "No files to process"
+            statusMessage = context.getString(R.string.status_no_files)
             return
         }
 
+        if (isProcessing) return
+
         isProcessing = true
         processedCount = 0
-        statusMessage = "Processing..."
+        statusMessage = context.getString(R.string.status_processing)
 
         viewModelScope.launch {
             var successCount = 0
@@ -101,6 +125,7 @@ class MainViewModel : ViewModel() {
                 val ext = file.newExtension.ifBlank { globalExtension }
 
                 if (ext.isBlank()) {
+                    files[i] = file.copy(errorMessage = context.getString(R.string.error_no_extension))
                     failCount++
                     continue
                 }
@@ -115,9 +140,12 @@ class MainViewModel : ViewModel() {
                 }
 
                 if (result.isSuccess) {
-                    files[i] = file.copy(isProcessed = true, newExtension = ext)
+                    files[i] = file.copy(isProcessed = true, newExtension = ext, errorMessage = null)
                     successCount++
                 } else {
+                    val errorMsg = result.exceptionOrNull()?.localizedMessage
+                        ?: context.getString(R.string.error_unknown)
+                    files[i] = file.copy(errorMessage = errorMsg)
                     failCount++
                 }
 
@@ -126,10 +154,14 @@ class MainViewModel : ViewModel() {
 
             isProcessing = false
             statusMessage = buildString {
-                append("Done! ")
-                append("$successCount saved")
-                if (failCount > 0) append(", $failCount failed")
-                append(" to Downloads/FileExtensionChanger")
+                append(context.getString(R.string.status_done))
+                append(" ")
+                append(context.getString(R.string.status_saved_count, successCount))
+                if (failCount > 0) {
+                    append(", ")
+                    append(context.getString(R.string.status_failed_count, failCount))
+                }
+                append(" → Downloads/FileExtensionChanger")
             }
         }
     }

@@ -7,19 +7,21 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowForward
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.InsertDriveFile
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.fileextchanger.app.FileItem
+import com.fileextchanger.app.R
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FileItemCard(
     file: FileItem,
@@ -27,11 +29,13 @@ fun FileItemCard(
     onRemove: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val hasError = file.errorMessage != null
     val cardColor by animateColorAsState(
-        targetValue = if (file.isProcessed)
-            MaterialTheme.colorScheme.primaryContainer
-        else
-            MaterialTheme.colorScheme.surfaceVariant,
+        targetValue = when {
+            hasError -> MaterialTheme.colorScheme.errorContainer
+            file.isProcessed -> MaterialTheme.colorScheme.primaryContainer
+            else -> MaterialTheme.colorScheme.surfaceVariant
+        },
         label = "cardColor"
     )
 
@@ -47,12 +51,17 @@ fun FileItemCard(
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Icon(
-                    imageVector = if (file.isProcessed) Icons.Filled.CheckCircle else Icons.Filled.InsertDriveFile,
+                    imageVector = when {
+                        hasError -> Icons.Filled.Error
+                        file.isProcessed -> Icons.Filled.CheckCircle
+                        else -> Icons.Filled.InsertDriveFile
+                    },
                     contentDescription = null,
-                    tint = if (file.isProcessed)
-                        MaterialTheme.colorScheme.primary
-                    else
-                        MaterialTheme.colorScheme.onSurfaceVariant,
+                    tint = when {
+                        hasError -> MaterialTheme.colorScheme.error
+                        file.isProcessed -> MaterialTheme.colorScheme.primary
+                        else -> MaterialTheme.colorScheme.onSurfaceVariant
+                    },
                     modifier = Modifier.size(32.dp)
                 )
 
@@ -75,7 +84,7 @@ fun FileItemCard(
                 IconButton(onClick = onRemove) {
                     Icon(
                         imageVector = Icons.Filled.Close,
-                        contentDescription = "Remove",
+                        contentDescription = stringResource(R.string.remove),
                         tint = MaterialTheme.colorScheme.error
                     )
                 }
@@ -93,7 +102,7 @@ fun FileItemCard(
                     modifier = Modifier.weight(1f)
                 ) {
                     Text(
-                        text = ".${file.currentExtension.ifEmpty { "none" }}",
+                        text = ".${file.currentExtension.ifEmpty { stringResource(R.string.no_extension) }}",
                         modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
                         style = MaterialTheme.typography.bodyMedium.copy(
                             fontWeight = FontWeight.Bold,
@@ -114,19 +123,29 @@ fun FileItemCard(
                     value = file.newExtension,
                     onValueChange = onExtensionChanged,
                     modifier = Modifier.weight(1f),
-                    placeholder = { Text("new ext") },
+                    placeholder = { Text(stringResource(R.string.new_ext_hint)) },
                     prefix = { Text(".") },
                     singleLine = true,
-                    shape = RoundedCornerShape(8.dp)
+                    shape = RoundedCornerShape(8.dp),
+                    isError = hasError
                 )
             }
 
             if (file.isProcessed) {
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = "Saved as: ${file.targetFileName}",
+                    text = stringResource(R.string.saved_as, file.targetFileName),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.primary
+                )
+            }
+
+            if (hasError) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = file.errorMessage!!,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error
                 )
             }
         }
