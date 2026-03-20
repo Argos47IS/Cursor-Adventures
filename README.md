@@ -130,6 +130,8 @@ bash setup_cron.sh
 
 ## Запуск на Android (Termux) без root
 
+> **Подробный пошаговый гайд со скриншотами и решением проблем:** [TERMUX_GUIDE.md](TERMUX_GUIDE.md)
+
 Playwright не работает в Termux напрямую (бинарники Chromium несовместимы). Есть два способа:
 
 ### Способ A: Lite-режим (рекомендуется)
