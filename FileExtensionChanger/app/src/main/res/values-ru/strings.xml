@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Смена расширений</string>
+
+    <!-- Top bar -->
+    <string name="title_line1">Смена</string>
+    <string name="title_line2">расширений файлов</string>
+    <string name="clear_all">Очистить всё</string>
+
+    <!-- Empty state -->
+    <string name="empty_title">Файлы ещё не добавлены</string>
+    <string name="empty_subtitle">Нажмите \"Добавить файлы\",\nчтобы выбрать файлы с устройства</string>
+
+    <!-- Buttons -->
+    <string name="btn_add_files">Добавить файлы</string>
+    <string name="btn_save">Сохранить</string>
+    <string name="btn_apply">Применить</string>
+
+    <!-- Global extension panel -->
+    <string name="global_ext_label">Расширение для всех файлов:</string>
+    <string name="global_ext_hint">напр. pdf, jpg, mp4</string>
+
+    <!-- File card -->
+    <string name="new_ext_hint">новое</string>
+    <string name="remove">Удалить</string>
+    <string name="saved_as">Сохранён как: %s</string>
+    <string name="file_count">Файлов: %d</string>
+    <string name="no_extension">нет</string>
+
+    <!-- Status -->
+    <string name="status_no_files">Нет файлов для обработки</string>
+    <string name="status_processing">Обработка…</string>
+    <string name="status_done">Готово!</string>
+    <string name="status_saved_count">%d сохранено</string>
+    <string name="status_failed_count">%d с ошибкой</string>
+
+    <!-- Errors -->
+    <string name="error_no_extension">Расширение не указано</string>
+    <string name="error_unknown">Неизвестная ошибка</string>
+
+    <!-- Confirm dialog -->
+    <string name="confirm_title">Сохранить файлы?</string>
+    <string name="confirm_message">Файлы будут сохранены с новыми расширениями в Downloads/FileExtensionChanger</string>
+    <string name="confirm_yes">Сохранить</string>
+    <string name="confirm_no">Отмена</string>
+
+    <!-- Permissions -->
+    <string name="permission_needed">Для сохранения файлов необходим доступ к хранилищу</string>
+    <string name="permission_btn">Дать доступ</string>
+</resources>

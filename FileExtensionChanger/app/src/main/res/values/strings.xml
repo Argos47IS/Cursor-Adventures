@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">File Extension Changer</string>
+
+    <!-- Top bar -->
+    <string name="title_line1">File Extension</string>
+    <string name="title_line2">Changer</string>
+    <string name="clear_all">Clear all</string>
+
+    <!-- Empty state -->
+    <string name="empty_title">No files added yet</string>
+    <string name="empty_subtitle">Tap \"Add Files\" to pick files\nfrom your device</string>
+
+    <!-- Buttons -->
+    <string name="btn_add_files">Add Files</string>
+    <string name="btn_save">Save</string>
+    <string name="btn_apply">Apply</string>
+
+    <!-- Global extension panel -->
+    <string name="global_ext_label">Set extension for all files:</string>
+    <string name="global_ext_hint">e.g. pdf, jpg, mp4</string>
+
+    <!-- File card -->
+    <string name="new_ext_hint">new ext</string>
+    <string name="remove">Remove</string>
+    <string name="saved_as">Saved as: %s</string>
+    <string name="file_count">%d file(s)</string>
+    <string name="no_extension">none</string>
+
+    <!-- Status -->
+    <string name="status_no_files">No files to process</string>
+    <string name="status_processing">Processing…</string>
+    <string name="status_done">Done!</string>
+    <string name="status_saved_count">%d saved</string>
+    <string name="status_failed_count">%d failed</string>
+
+    <!-- Errors -->
+    <string name="error_no_extension">Extension not set</string>
+    <string name="error_unknown">Unknown error</string>
+
+    <!-- Confirm dialog -->
+    <string name="confirm_title">Save files?</string>
+    <string name="confirm_message">Files will be saved with new extensions to Downloads/FileExtensionChanger</string>
+    <string name="confirm_yes">Save</string>
+    <string name="confirm_no">Cancel</string>
+
+    <!-- Permissions -->
+    <string name="permission_needed">Storage permission is required to save files</string>
+    <string name="permission_btn">Grant permission</string>
+</resources>
