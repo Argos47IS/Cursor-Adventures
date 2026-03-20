@@ -1,0 +1,24 @@
+# Environment
+.env
+venv/
+__pycache__/
+*.pyc
+
+# Telegram session (legacy)
+tg_session.session
+*.session
+
+# Database
+channel_stats.db
+
+# Reports
+reports/
+
+# Debug output
+debug/
+
+# Logs
+*.log
+
+# Playwright browsers cached locally
+pw-browsers/
