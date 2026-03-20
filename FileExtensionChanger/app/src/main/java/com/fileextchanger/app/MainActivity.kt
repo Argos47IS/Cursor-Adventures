@@ -10,6 +10,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import com.fileextchanger.app.ui.MainScreen
 import com.fileextchanger.app.ui.theme.FileExtensionChangerTheme
+import com.google.android.gms.ads.MobileAds
 
 class MainActivity : ComponentActivity() {
 
@@ -18,6 +19,8 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+
+        MobileAds.initialize(this)
 
         handleIncomingIntent(intent)
 

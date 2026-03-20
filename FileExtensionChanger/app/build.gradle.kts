@@ -62,4 +62,6 @@ dependencies {
     implementation("androidx.compose.material:material-icons-extended")
 
     implementation("androidx.documentfile:documentfile:1.0.1")
+
+    implementation("com.google.android.gms:play-services-ads:23.1.0")
 }

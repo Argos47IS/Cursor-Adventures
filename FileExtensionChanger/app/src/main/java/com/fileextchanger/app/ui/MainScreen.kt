@@ -23,6 +23,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.fileextchanger.app.MainViewModel
 import com.fileextchanger.app.R
+import com.fileextchanger.app.ui.components.AdBanner
 import com.fileextchanger.app.ui.components.FileItemCard
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -101,59 +102,66 @@ fun MainScreen(viewModel: MainViewModel) {
             )
         },
         bottomBar = {
-            if (viewModel.files.isNotEmpty()) {
-                Surface(
-                    tonalElevation = 3.dp,
-                    shadowElevation = 8.dp
+            Surface(
+                tonalElevation = 3.dp,
+                shadowElevation = 8.dp
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .navigationBarsPadding()
                 ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 12.dp)
-                            .navigationBarsPadding(),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        OutlinedButton(
-                            onClick = { filePickerLauncher.launch(arrayOf("*/*")) },
-                            modifier = Modifier.weight(1f)
+                    if (viewModel.files.isNotEmpty()) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 12.dp),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
-                            Icon(
-                                Icons.Filled.Add,
-                                contentDescription = null,
-                                modifier = Modifier.size(18.dp)
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(stringResource(R.string.btn_add_files))
-                        }
-
-                        Button(
-                            onClick = {
-                                if (!hasStoragePermission && Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
-                                    permissionLauncher.launch(Manifest.permission.WRITE_EXTERNAL_STORAGE)
-                                } else {
-                                    viewModel.requestProcess()
-                                }
-                            },
-                            modifier = Modifier.weight(1f),
-                            enabled = !viewModel.isProcessing
-                        ) {
-                            if (viewModel.isProcessing) {
-                                CircularProgressIndicator(
-                                    modifier = Modifier.size(18.dp),
-                                    strokeWidth = 2.dp,
-                                    color = MaterialTheme.colorScheme.onPrimary
-                                )
-                            } else {
+                            OutlinedButton(
+                                onClick = { filePickerLauncher.launch(arrayOf("*/*")) },
+                                modifier = Modifier.weight(1f)
+                            ) {
                                 Icon(
-                                    Icons.Filled.Save,
+                                    Icons.Filled.Add,
                                     contentDescription = null,
                                     modifier = Modifier.size(18.dp)
                                 )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(stringResource(R.string.btn_add_files))
                             }
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(stringResource(R.string.btn_save))
+
+                            Button(
+                                onClick = {
+                                    if (!hasStoragePermission && Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+                                        permissionLauncher.launch(Manifest.permission.WRITE_EXTERNAL_STORAGE)
+                                    } else {
+                                        viewModel.requestProcess()
+                                    }
+                                },
+                                modifier = Modifier.weight(1f),
+                                enabled = !viewModel.isProcessing
+                            ) {
+                                if (viewModel.isProcessing) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(18.dp),
+                                        strokeWidth = 2.dp,
+                                        color = MaterialTheme.colorScheme.onPrimary
+                                    )
+                                } else {
+                                    Icon(
+                                        Icons.Filled.Save,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(stringResource(R.string.btn_save))
+                            }
                         }
                     }
+
+                    AdBanner(modifier = Modifier.fillMaxWidth())
                 }
             }
         },
