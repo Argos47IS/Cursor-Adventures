@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">GeoDetect</string>
+    <string name="map_title">Photo Location</string>
+    <string name="full_metadata_title">Full Metadata</string>
+
+    <string name="welcome_title">GeoDetect</string>
+    <string name="welcome_subtitle">Photo metadata &amp; geolocation analyzer</string>
+    <string name="pick_photo">Select Photo</string>
+    <string name="take_photo">Take Photo</string>
+    <string name="drop_hint">Tap the button below to select an image for analysis</string>
+
+    <string name="section_location">Location</string>
+    <string name="section_datetime">Date &amp; Time</string>
+    <string name="section_camera">Camera</string>
+    <string name="section_image">Image</string>
+    <string name="section_edit_detection">Edit Detection</string>
+    <string name="section_software">Software</string>
+
+    <string name="label_latitude">Latitude</string>
+    <string name="label_longitude">Longitude</string>
+    <string name="label_altitude">Altitude</string>
+    <string name="label_date_taken">Date Taken</string>
+    <string name="label_date_modified">Date Modified</string>
+    <string name="label_date_digitized">Date Digitized</string>
+    <string name="label_gps_date">GPS Date</string>
+    <string name="label_gps_time">GPS Time</string>
+    <string name="label_camera">Camera</string>
+    <string name="label_lens">Lens</string>
+    <string name="label_focal_length">Focal Length</string>
+    <string name="label_aperture">Aperture</string>
+    <string name="label_iso">ISO</string>
+    <string name="label_exposure">Exposure</string>
+    <string name="label_flash">Flash</string>
+    <string name="label_white_balance">White Balance</string>
+    <string name="label_resolution">Resolution</string>
+    <string name="label_orientation">Orientation</string>
+    <string name="label_color_space">Color Space</string>
+    <string name="label_file_name">File Name</string>
+    <string name="label_file_size">File Size</string>
+    <string name="label_mime_type">Type</string>
+    <string name="label_software">Software</string>
+    <string name="label_compression">Compression</string>
+
+    <string name="view_on_map">View on Map</string>
+    <string name="view_full_metadata">View All Metadata</string>
+    <string name="analyze_another">Analyze Another Photo</string>
+    <string name="no_location">No location data available</string>
+    <string name="no_data">N/A</string>
+
+    <string name="edit_likely">Likely Edited</string>
+    <string name="edit_unlikely">Likely Original</string>
+    <string name="edit_unknown">Cannot Determine</string>
+    <string name="confidence">Confidence</string>
+    <string name="confidence_high">High</string>
+    <string name="confidence_medium">Medium</string>
+    <string name="confidence_low">Low</string>
+    <string name="confidence_unknown">Unknown</string>
+    <string name="editing_software">Editing Software</string>
+    <string name="reasons">Analysis Details</string>
+
+    <string name="loading">Analyzing photo…</string>
+    <string name="error_loading">Error loading photo</string>
+    <string name="share_results">Share Results</string>
+    <string name="permission_denied">Permission required to access photos</string>
+    <string name="open_in_maps">Open in Maps</string>
+
+    <!-- Edit detection reasons -->
+    <string name="reason_software_editor">Software tag contains editing software: %s</string>
+    <string name="reason_non_camera_sw">Non-camera software detected: %s</string>
+    <string name="reason_adobe_product">Adobe product identified: %s</string>
+    <string name="reason_xmp_adobe">XMP metadata contains Adobe/Photoshop references</string>
+    <string name="reason_xmp_history">XMP contains editing history records</string>
+    <string name="reason_xmp_creator">XMP CreatorTool indicates editing: %s</string>
+    <string name="reason_xmp_derived">XMP DerivedFrom tag present (file was saved from another)</string>
+    <string name="reason_date_mismatch">Date taken (%1$s) differs from date modified (%2$s) — gap of %3$dh</string>
+    <string name="reason_missing_exif">Multiple critical EXIF tags missing (%1$d/6) — metadata may have been stripped</string>
+    <string name="reason_large_file">Unusually large file size for resolution (%1$s for %2$s) — may indicate re-encoding</string>
+    <string name="reason_small_file">Unusually small file size for resolution — heavy compression may indicate re-saving</string>
+    <string name="reason_thumbnail_mismatch">Thumbnail metadata is inconsistent</string>
+    <string name="reason_no_edits">No signs of editing detected in available metadata</string>
+</resources>

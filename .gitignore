@@ -22,3 +22,8 @@ debug/
 
 # Playwright browsers cached locally
 pw-browsers/
+
+# Android / GeoDetect
+GeoDetect/app/build/
+GeoDetect/local.properties
+GeoDetect/.gradle/
