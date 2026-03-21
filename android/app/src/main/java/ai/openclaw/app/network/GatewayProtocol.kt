@@ -1,6 +1,5 @@
 package ai.openclaw.app.network
 
-import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
@@ -31,7 +30,7 @@ data class ConnectParams(
     val permissions: Map<String, Boolean> = emptyMap(),
     val auth: AuthInfo? = null,
     val locale: String = "en-US",
-    val userAgent: String = "openclaw-android/${BuildConfig.VERSION_NAME}",
+    val userAgent: String = "openclaw-android/${AppVersion.NAME}",
     val device: DeviceInfo? = null,
 ) {
     companion object {
@@ -42,7 +41,7 @@ data class ConnectParams(
 @Serializable
 data class ClientInfo(
     val id: String = "android-node",
-    val version: String = BuildConfig.VERSION_NAME,
+    val version: String = AppVersion.NAME,
     val platform: String = "android",
     val mode: String = "node",
 )
@@ -122,7 +121,7 @@ data class SetupCode(
     val bootstrapToken: String? = null,
 )
 
-object BuildConfig {
-    const val VERSION_NAME = "1.0.0"
-    const val VERSION_CODE = 1
+object AppVersion {
+    const val NAME = "1.0.0"
+    const val CODE = 1
 }
