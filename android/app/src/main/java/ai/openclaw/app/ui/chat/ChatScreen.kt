@@ -301,7 +301,6 @@ fun ChatBubble(message: ChatMessage) {
                 modifier = Modifier
                     .width(60.dp)
                     .padding(top = 4.dp),
-                strokeCap = StrokeCap.Round,
             )
         }
     }

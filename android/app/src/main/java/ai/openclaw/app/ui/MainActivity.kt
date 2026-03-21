@@ -7,6 +7,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -76,7 +77,7 @@ class MainActivity : ComponentActivity() {
 
 enum class Tab(val title: String, val icon: ImageVector) {
     CONNECT("Connect", Icons.Default.Wifi),
-    CHAT("Chat", Icons.Default.Chat),
+    CHAT("Chat", Icons.AutoMirrored.Filled.Chat),
     VOICE("Voice", Icons.Default.Mic),
     SCREEN("Screen", Icons.Default.Smartphone),
     SETTINGS("Settings", Icons.Default.Settings),

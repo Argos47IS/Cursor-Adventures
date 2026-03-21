@@ -84,6 +84,7 @@ class GatewayDiscovery(private val context: Context) {
         isDiscovering = false
     }
 
+    @Suppress("DEPRECATION")
     private fun resolveService(serviceInfo: NsdServiceInfo) {
         nsdManager.resolveService(serviceInfo, object : NsdManager.ResolveListener {
             override fun onResolveFailed(serviceInfo: NsdServiceInfo, errorCode: Int) {
@@ -91,6 +92,7 @@ class GatewayDiscovery(private val context: Context) {
             }
 
             override fun onServiceResolved(serviceInfo: NsdServiceInfo) {
+                @Suppress("DEPRECATION")
                 val host = serviceInfo.host?.hostAddress ?: return
                 val port = serviceInfo.port
                 val name = serviceInfo.serviceName

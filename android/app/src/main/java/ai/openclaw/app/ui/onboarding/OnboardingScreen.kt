@@ -5,6 +5,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -38,7 +40,7 @@ val onboardingPages = listOf(
         description = "Pair with a setup code from your gateway, or manually enter the host and port. Both devices need to be on the same network.",
     ),
     OnboardingPage(
-        icon = Icons.Default.Chat,
+        icon = Icons.AutoMirrored.Filled.Chat,
         title = "Start chatting",
         description = "Talk to your AI assistant through chat or voice. Your device becomes a powerful node with camera, canvas, and sensor capabilities.",
     ),
@@ -103,7 +105,7 @@ fun OnboardingScreen(onComplete: () -> Unit) {
                 ) {
                     Text("Next")
                     Spacer(modifier = Modifier.width(4.dp))
-                    Icon(Icons.Default.ArrowForward, null, modifier = Modifier.size(18.dp))
+                    Icon(Icons.AutoMirrored.Filled.ArrowForward, null, modifier = Modifier.size(18.dp))
                 }
             } else {
                 Button(onClick = onComplete) {
