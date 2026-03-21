@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">OpenClaw</string>
+    <string name="connect_tab">Connect</string>
+    <string name="chat_tab">Chat</string>
+    <string name="voice_tab">Voice</string>
+    <string name="screen_tab">Screen</string>
+    <string name="settings_tab">Settings</string>
+
+    <string name="gateway_connection">Gateway Connection</string>
+    <string name="gateway_connected">Connected to Gateway</string>
+    <string name="gateway_disconnected">Disconnected</string>
+    <string name="gateway_connecting">Connecting…</string>
+    <string name="gateway_pairing">Pairing required</string>
+
+    <string name="setup_code">Setup Code</string>
+    <string name="manual_connect">Manual</string>
+    <string name="host">Host</string>
+    <string name="port">Port</string>
+    <string name="token">Token</string>
+    <string name="password">Password</string>
+    <string name="connect">Connect</string>
+    <string name="disconnect">Disconnect</string>
+    <string name="reconnect">Reconnect</string>
+
+    <string name="tls_enabled">TLS Enabled</string>
+    <string name="advanced_options">Advanced Options</string>
+
+    <string name="chat_send_hint">Type a message…</string>
+    <string name="chat_send">Send</string>
+    <string name="session_main">main</string>
+
+    <string name="voice_start">Start listening</string>
+    <string name="voice_stop">Stop listening</string>
+
+    <string name="notification_channel_id">openclaw_gateway</string>
+    <string name="notification_channel_name">Gateway Connection</string>
+    <string name="notification_title">OpenClaw</string>
+    <string name="notification_text_connected">Connected to gateway</string>
+    <string name="notification_text_connecting">Connecting to gateway…</string>
+    <string name="notification_text_disconnected">Disconnected from gateway</string>
+
+    <string name="onboarding_welcome">Welcome to OpenClaw</string>
+    <string name="onboarding_description">Your personal AI assistant, running on your own infrastructure.</string>
+    <string name="onboarding_step1_title">Set up your Gateway</string>
+    <string name="onboarding_step1_desc">Run the OpenClaw gateway on your main machine.</string>
+    <string name="onboarding_step2_title">Connect this device</string>
+    <string name="onboarding_step2_desc">Pair with a setup code or manual connection.</string>
+    <string name="onboarding_step3_title">Grant permissions</string>
+    <string name="onboarding_step3_desc">Allow camera, microphone, and location for full agent capability.</string>
+    <string name="onboarding_step4_title">Start chatting</string>
+    <string name="onboarding_step4_desc">Talk to your AI assistant through chat or voice.</string>
+    <string name="onboarding_get_started">Get Started</string>
+    <string name="onboarding_next">Next</string>
+    <string name="onboarding_skip">Skip</string>
+</resources>

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.OpenClaw" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="colorPrimary">@color/openclaw_primary</item>
+        <item name="colorPrimaryDark">@color/openclaw_primary_dark</item>
+        <item name="colorSecondary">@color/openclaw_secondary</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+    </style>
+</resources>
