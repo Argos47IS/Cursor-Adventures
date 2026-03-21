@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="openclaw_primary">#FF2563EB</color>
+    <color name="openclaw_primary_dark">#FF1D4ED8</color>
+    <color name="openclaw_secondary">#FF7C3AED</color>
+    <color name="openclaw_surface">#FFFFFFFF</color>
+    <color name="openclaw_background">#FFF8FAFC</color>
+    <color name="openclaw_on_primary">#FFFFFFFF</color>
+    <color name="openclaw_on_surface">#FF0F172A</color>
+    <color name="openclaw_on_background">#FF1E293B</color>
+    <color name="openclaw_error">#FFDC2626</color>
+    <color name="openclaw_success">#FF16A34A</color>
+    <color name="openclaw_warning">#FFEA580C</color>
+    <color name="openclaw_lobster">#FFEF4444</color>
+</resources>

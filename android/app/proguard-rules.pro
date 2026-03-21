@@ -1,0 +1,10 @@
+-keepattributes *Annotation*
+-keep class kotlinx.serialization.** { *; }
+-keepclassmembers class ai.openclaw.app.network.** { *; }
+-keepclassmembers class ai.openclaw.app.data.** { *; }
+-dontwarn org.bouncycastle.**
+-keep class org.bouncycastle.** { *; }
+-dontwarn okhttp3.**
+-keep class okhttp3.** { *; }
+-dontwarn dnsjava.**
+-keep class dnsjava.** { *; }

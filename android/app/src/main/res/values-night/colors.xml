@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="openclaw_surface">#FF1E293B</color>
+    <color name="openclaw_background">#FF0F172A</color>
+    <color name="openclaw_on_surface">#FFF1F5F9</color>
+    <color name="openclaw_on_background">#FFE2E8F0</color>
+</resources>
