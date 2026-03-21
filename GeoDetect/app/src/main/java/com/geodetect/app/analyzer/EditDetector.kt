@@ -3,6 +3,7 @@ package com.geodetect.app.analyzer
 import android.content.Context
 import android.graphics.BitmapFactory
 import android.net.Uri
+import com.geodetect.app.R
 import com.geodetect.app.models.ConfidenceLevel
 import com.geodetect.app.models.EditDetectionResult
 import com.geodetect.app.models.PhotoMetadata
@@ -43,38 +44,36 @@ class EditDetector(private val context: Context) {
         var score = 0
         var editingSoftware: String? = null
 
-        // 1. Check software tag
         metadata.software?.let { sw ->
             val swLower = sw.lowercase()
             val matchedEditor = KNOWN_EDITORS.find { swLower.contains(it) }
             if (matchedEditor != null) {
                 score += 40
                 editingSoftware = sw
-                reasons.add("Software tag contains editing software: $sw")
+                reasons.add(context.getString(R.string.reason_software_editor, sw))
             } else if (!isLikelyCameraSoftware(swLower)) {
                 score += 10
-                reasons.add("Non-camera software detected: $sw")
+                reasons.add(context.getString(R.string.reason_non_camera_sw, sw))
             }
 
             if (ADOBE_PATTERNS.any { swLower.contains(it) }) {
                 score += 15
                 editingSoftware = sw
-                reasons.add("Adobe product identified: $sw")
+                reasons.add(context.getString(R.string.reason_adobe_product, sw))
             }
         }
 
-        // 2. Check XMP data for editing traces
         metadata.rawExifData["XMP Data"]?.let { xmp ->
             val xmpLower = xmp.lowercase()
 
             if (xmpLower.contains("photoshop") || xmpLower.contains("adobe")) {
                 score += 30
-                reasons.add("XMP metadata contains Adobe/Photoshop references")
+                reasons.add(context.getString(R.string.reason_xmp_adobe))
             }
 
             if (xmpLower.contains("history") || xmpLower.contains("stEvt:action")) {
                 score += 25
-                reasons.add("XMP contains editing history records")
+                reasons.add(context.getString(R.string.reason_xmp_history))
             }
 
             if (xmpLower.contains("creatortool")) {
@@ -84,41 +83,37 @@ class EditDetector(private val context: Context) {
                     if (KNOWN_EDITORS.any { tool.contains(it) }) {
                         score += 25
                         editingSoftware = editingSoftware ?: tool.trim()
-                        reasons.add("XMP CreatorTool indicates editing: ${tool.trim()}")
+                        reasons.add(context.getString(R.string.reason_xmp_creator, tool.trim()))
                     }
                 }
             }
 
             if (xmpLower.contains("derivedFrom") || xmpLower.contains("derivedfrom")) {
                 score += 20
-                reasons.add("XMP DerivedFrom tag present (file was saved from another)")
+                reasons.add(context.getString(R.string.reason_xmp_derived))
             }
         }
 
-        // 3. Check date inconsistencies
-        checkDateInconsistencies(metadata)?.let { reason ->
+        checkDateInconsistencies(metadata)?.let { (reason, _) ->
             score += 15
             reasons.add(reason)
         }
 
-        // 4. Check for missing EXIF (stripped metadata can indicate editing)
         val missingCount = checkMissingCriticalExif(metadata)
         if (missingCount >= 4) {
             score += 15
-            reasons.add("Multiple critical EXIF tags missing ($missingCount/6) — metadata may have been stripped")
+            reasons.add(context.getString(R.string.reason_missing_exif, missingCount))
         }
 
-        // 5. Check JPEG quality / file size ratio
         checkFileSizeAnomaly(metadata, uri)?.let { reason ->
             score += 10
             reasons.add(reason)
         }
 
-        // 6. Check for thumbnail mismatch indicators
         metadata.rawExifData[androidx.exifinterface.media.ExifInterface.TAG_THUMBNAIL_IMAGE_LENGTH]?.let {
             if (metadata.rawExifData[androidx.exifinterface.media.ExifInterface.TAG_THUMBNAIL_IMAGE_WIDTH] == null) {
                 score += 5
-                reasons.add("Thumbnail metadata is inconsistent")
+                reasons.add(context.getString(R.string.reason_thumbnail_mismatch))
             }
         }
 
@@ -130,7 +125,7 @@ class EditDetector(private val context: Context) {
         }
 
         if (reasons.isEmpty()) {
-            reasons.add("No signs of editing detected in available metadata")
+            reasons.add(context.getString(R.string.reason_no_edits))
         }
 
         return EditDetectionResult(
@@ -145,7 +140,7 @@ class EditDetector(private val context: Context) {
         return KNOWN_CAMERA_SOFTWARE.any { software.contains(it) }
     }
 
-    private fun checkDateInconsistencies(metadata: PhotoMetadata): String? {
+    private fun checkDateInconsistencies(metadata: PhotoMetadata): Pair<String, Long>? {
         val dateOriginal = metadata.dateTaken ?: return null
         val dateModified = metadata.dateModified ?: return null
 
@@ -160,7 +155,8 @@ class EditDetector(private val context: Context) {
             val diffHours = diffMs / (1000 * 60 * 60)
 
             if (diffHours > 24) {
-                return "Date taken ($dateOriginal) differs significantly from date modified ($dateModified) — gap of ${diffHours}h"
+                val msg = context.getString(R.string.reason_date_mismatch, dateOriginal, dateModified, diffHours)
+                return msg to diffHours
             }
         } catch (_: Exception) { }
 
@@ -198,10 +194,12 @@ class EditDetector(private val context: Context) {
             if (isJpeg && megapixels > 0) {
                 val ratio = fileSizeMB / megapixels
                 if (ratio > 3.0) {
-                    return "Unusually large file size for resolution (${String.format("%.1f", fileSizeMB)}MB for ${String.format("%.1f", megapixels)}MP) — may indicate re-encoding"
+                    val sizeStr = String.format(Locale.US, "%.1f MB", fileSizeMB)
+                    val mpStr = String.format(Locale.US, "%.1f MP", megapixels)
+                    return context.getString(R.string.reason_large_file, sizeStr, mpStr)
                 }
                 if (ratio < 0.1 && megapixels > 2) {
-                    return "Unusually small file size for resolution — heavy compression may indicate re-saving"
+                    return context.getString(R.string.reason_small_file)
                 }
             }
         } catch (_: Exception) { }

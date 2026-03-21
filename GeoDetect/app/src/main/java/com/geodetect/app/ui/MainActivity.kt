@@ -1,15 +1,21 @@
 package com.geodetect.app.ui
 
+import android.Manifest
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.graphics.BitmapFactory
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.widget.TextView
 import android.widget.Toast
+import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import com.geodetect.app.R
 import com.geodetect.app.analyzer.EditDetector
 import com.geodetect.app.analyzer.MetadataExtractor
@@ -25,6 +31,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var editDetector: EditDetector
     private var currentMetadata: PhotoMetadata? = null
     private var currentUri: Uri? = null
+    private var isShowingResults = false
 
     private val pickImage = registerForActivityResult(
         ActivityResultContracts.GetContent()
@@ -32,7 +39,18 @@ class MainActivity : AppCompatActivity() {
         uri?.let { analyzePhoto(it) }
     }
 
+    private val requestPermission = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) {
+            pickImage.launch("image/*")
+        } else {
+            Toast.makeText(this, getString(R.string.permission_denied), Toast.LENGTH_LONG).show()
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
+        installSplashScreen()
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
@@ -42,6 +60,26 @@ class MainActivity : AppCompatActivity() {
 
         setupToolbar()
         setupButtons()
+        setupBackNavigation()
+
+        handleIncomingIntent(intent)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        handleIncomingIntent(intent)
+    }
+
+    private fun handleIncomingIntent(intent: Intent) {
+        if (intent.action == Intent.ACTION_SEND && intent.type?.startsWith("image/") == true) {
+            val uri = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                intent.getParcelableExtra(Intent.EXTRA_STREAM, Uri::class.java)
+            } else {
+                @Suppress("DEPRECATION")
+                intent.getParcelableExtra(Intent.EXTRA_STREAM)
+            }
+            uri?.let { analyzePhoto(it) }
+        }
     }
 
     private fun setupToolbar() {
@@ -49,8 +87,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setupButtons() {
-        binding.btnPickPhotoWelcome.setOnClickListener { pickImage.launch("image/*") }
-        binding.btnAnalyzeAnother.setOnClickListener { pickImage.launch("image/*") }
+        binding.btnPickPhotoWelcome.setOnClickListener { launchPicker() }
+        binding.btnAnalyzeAnother.setOnClickListener { launchPicker() }
 
         binding.btnViewMap.setOnClickListener {
             currentMetadata?.let { meta ->
@@ -80,6 +118,35 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun setupBackNavigation() {
+        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                if (isShowingResults) {
+                    showWelcome()
+                    currentMetadata = null
+                    currentUri = null
+                    binding.imagePreview.setImageDrawable(null)
+                    binding.scrollView.scrollTo(0, 0)
+                } else {
+                    isEnabled = false
+                    onBackPressedDispatcher.onBackPressed()
+                }
+            }
+        })
+    }
+
+    private fun launchPicker() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_MEDIA_IMAGES)
+                != PackageManager.PERMISSION_GRANTED
+            ) {
+                requestPermission.launch(Manifest.permission.READ_MEDIA_IMAGES)
+                return
+            }
+        }
+        pickImage.launch("image/*")
+    }
+
     private fun analyzePhoto(uri: Uri) {
         currentUri = uri
         showLoading()
@@ -104,14 +171,7 @@ class MainActivity : AppCompatActivity() {
     private fun displayResults(metadata: PhotoMetadata, uri: Uri) {
         showResults()
 
-        try {
-            contentResolver.openInputStream(uri)?.use { stream ->
-                val bitmap = BitmapFactory.decodeStream(stream)
-                binding.imagePreview.setImageBitmap(bitmap)
-            }
-        } catch (_: Exception) {
-            binding.imagePreview.setImageResource(R.drawable.ic_photo_library)
-        }
+        loadPreviewBitmap(uri)
 
         binding.tvFileName.text = metadata.fileName
         binding.tvFileInfo.text = buildFileInfoString(metadata)
@@ -121,6 +181,31 @@ class MainActivity : AppCompatActivity() {
         displayDateTime(metadata)
         displayCamera(metadata)
         displayImageDetails(metadata)
+
+        binding.scrollView.scrollTo(0, 0)
+    }
+
+    private fun loadPreviewBitmap(uri: Uri) {
+        try {
+            val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+            contentResolver.openInputStream(uri)?.use { stream ->
+                BitmapFactory.decodeStream(stream, null, options)
+            }
+
+            val maxDim = 1200
+            var sampleSize = 1
+            while (options.outWidth / sampleSize > maxDim || options.outHeight / sampleSize > maxDim) {
+                sampleSize *= 2
+            }
+
+            val decodeOptions = BitmapFactory.Options().apply { inSampleSize = sampleSize }
+            contentResolver.openInputStream(uri)?.use { stream ->
+                val bitmap = BitmapFactory.decodeStream(stream, null, decodeOptions)
+                binding.imagePreview.setImageBitmap(bitmap)
+            }
+        } catch (_: Exception) {
+            binding.imagePreview.setImageResource(R.drawable.ic_photo_library)
+        }
     }
 
     private fun displayEditDetection(metadata: PhotoMetadata) {
@@ -141,7 +226,8 @@ class MainActivity : AppCompatActivity() {
         binding.tvEditStatus.setTextColor(getColor(textColor))
         binding.editStatusBadge.setBackgroundResource(bgDrawable)
 
-        binding.tvEditConfidence.text = "${getString(R.string.confidence)}: ${result.confidenceLevel.labelRu}"
+        val confLabel = result.confidenceLevel.getLocalizedLabel(this)
+        binding.tvEditConfidence.text = "${getString(R.string.confidence)}: $confLabel"
         binding.tvEditConfidence.setTextColor(getColor(textColor))
 
         if (result.editingSoftware != null) {
@@ -310,41 +396,41 @@ class MainActivity : AppCompatActivity() {
 
     private fun shareResults(metadata: PhotoMetadata) {
         val sb = StringBuilder()
-        sb.appendLine("=== GeoDetect Analysis ===")
-        sb.appendLine("File: ${metadata.fileName}")
-        sb.appendLine("Size: ${formatFileSize(metadata.fileSize)}")
+        sb.appendLine("=== GeoDetect ===")
+        sb.appendLine("${getString(R.string.label_file_name)}: ${metadata.fileName}")
+        sb.appendLine("${getString(R.string.label_file_size)}: ${formatFileSize(metadata.fileSize)}")
         sb.appendLine()
 
         if (metadata.latitude != null && metadata.longitude != null) {
-            sb.appendLine("--- Location ---")
-            sb.appendLine("Lat: ${metadata.latitude}")
-            sb.appendLine("Lon: ${metadata.longitude}")
-            metadata.altitude?.let { sb.appendLine("Alt: ${it}m") }
-            sb.appendLine("Maps: https://maps.google.com/?q=${metadata.latitude},${metadata.longitude}")
+            sb.appendLine("--- ${getString(R.string.section_location)} ---")
+            sb.appendLine("${getString(R.string.label_latitude)}: ${metadata.latitude}")
+            sb.appendLine("${getString(R.string.label_longitude)}: ${metadata.longitude}")
+            metadata.altitude?.let { sb.appendLine("${getString(R.string.label_altitude)}: ${it}m") }
+            sb.appendLine("Google Maps: https://maps.google.com/?q=${metadata.latitude},${metadata.longitude}")
             sb.appendLine()
         }
 
         metadata.dateTaken?.let {
-            sb.appendLine("--- Date/Time ---")
-            sb.appendLine("Taken: $it")
-            metadata.dateModified?.let { d -> sb.appendLine("Modified: $d") }
+            sb.appendLine("--- ${getString(R.string.section_datetime)} ---")
+            sb.appendLine("${getString(R.string.label_date_taken)}: $it")
+            metadata.dateModified?.let { d -> sb.appendLine("${getString(R.string.label_date_modified)}: $d") }
             sb.appendLine()
         }
 
         val camera = listOfNotNull(metadata.cameraMake, metadata.cameraModel).joinToString(" ")
         if (camera.isNotBlank()) {
-            sb.appendLine("--- Camera ---")
-            sb.appendLine("Camera: $camera")
-            metadata.aperture?.let { sb.appendLine("Aperture: f/$it") }
+            sb.appendLine("--- ${getString(R.string.section_camera)} ---")
+            sb.appendLine("${getString(R.string.label_camera)}: $camera")
+            metadata.aperture?.let { sb.appendLine("${getString(R.string.label_aperture)}: f/$it") }
             metadata.iso?.let { sb.appendLine("ISO: $it") }
             sb.appendLine()
         }
 
-        sb.appendLine("--- Edit Detection ---")
+        sb.appendLine("--- ${getString(R.string.section_edit_detection)} ---")
         val editResult = metadata.editDetectionResult
-        sb.appendLine(if (editResult.isLikelyEdited) "LIKELY EDITED" else "Likely Original")
-        sb.appendLine("Confidence: ${editResult.confidenceLevel.label}")
-        editResult.editingSoftware?.let { sb.appendLine("Software: $it") }
+        sb.appendLine(if (editResult.isLikelyEdited) getString(R.string.edit_likely) else getString(R.string.edit_unlikely))
+        sb.appendLine("${getString(R.string.confidence)}: ${editResult.confidenceLevel.getLocalizedLabel(this)}")
+        editResult.editingSoftware?.let { sb.appendLine("${getString(R.string.editing_software)}: $it") }
         editResult.reasons.forEach { sb.appendLine("• $it") }
 
         val intent = Intent(Intent.ACTION_SEND).apply {
@@ -361,18 +447,21 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun showLoading() {
+        isShowingResults = false
         binding.welcomeContainer.visibility = View.GONE
         binding.loadingContainer.visibility = View.VISIBLE
         binding.resultsContainer.visibility = View.GONE
     }
 
     private fun showResults() {
+        isShowingResults = true
         binding.welcomeContainer.visibility = View.GONE
         binding.loadingContainer.visibility = View.GONE
         binding.resultsContainer.visibility = View.VISIBLE
     }
 
     private fun showWelcome() {
+        isShowingResults = false
         binding.welcomeContainer.visibility = View.VISIBLE
         binding.loadingContainer.visibility = View.GONE
         binding.resultsContainer.visibility = View.GONE

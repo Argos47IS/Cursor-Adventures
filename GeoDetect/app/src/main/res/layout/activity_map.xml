@@ -57,7 +57,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="44dp"
                 android:layout_marginTop="8dp"
-                android:text="Open in Maps App"
+                android:text="@string/open_in_maps"
                 app:cornerRadius="12dp" />
 
         </LinearLayout>
