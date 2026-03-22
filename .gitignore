@@ -4,8 +4,9 @@ venv/
 __pycache__/
 *.pyc
 
-# Telegram session (legacy)
+# Telegram session
 tg_session.session
+ad_monitor.session
 *.session
 
 # Database
@@ -13,12 +14,17 @@ channel_stats.db
 
 # Reports
 reports/
+ads_today.csv
 
 # Debug output
 debug/
 
 # Logs
 *.log
+log.txt
+
+# Last checked timestamp
+last_checked.txt
 
 # Playwright browsers cached locally
 pw-browsers/
