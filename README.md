@@ -6,205 +6,413 @@ An Android application for changing file extensions. See [FileExtensionChanger/R
 
 ---
 
-# Telegram Channel Stats — Автопарсер
+# Telegram Ad Monitor — Мониторинг рекламы в Telegram-каналах
 
-Автоматический парсер статистики Telegram-каналов из **TGStat.ru** и **Telemetr.me** — без платных API.
+Автоматический скрипт для Android (Termux), который отслеживает рекламные размещения в Telegram-каналах. Работает как инструмент рекламного менеджера — находит, кто и где покупает рекламу, собирает статистику покупателей.
 
-Каждый день в 16:00 МСК скрипт:
-1. Парсит рейтинги каналов с TGStat и Telemetr (категория: IT/технологии)
-2. Фильтрует каналы с 5 000 – 40 000 подписчиков
-3. Отправляет отчёт в Telegram-бот: список каналов + CSV-файл
+## Что делает
 
-## Как это работает
+Каждый день в **16:00 МСК** скрипт:
 
-- **Playwright** (headless Chromium) открывает публичные страницы рейтингов
-- Stealth-настройки обходят CloudFlare и антибот-защиту
-- Данные парсятся из HTML и перехваченных JSON-ответов API
-- Никаких платных API — только публичные веб-страницы
-- Отчёт отправляется через бесплатный Telegram Bot API
+1. Подключается к Telegram через ваш аккаунт (Telethon)
+2. Проверяет список каналов-доноров за последние 24 часа
+3. Находит рекламные посты (по маркерам: «Реклама», «Sponsored», erid и т.д.)
+4. Извлекает username покупателя из ссылок, кнопок, упоминаний, форвардов
+5. Собирает статистику покупателя: подписчики, средние просмотры, ER
+6. Сохраняет всё в `ads_today.csv`
+7. Отправляет CSV + текстовый отчёт вам в личный Telegram
 
-## Быстрый старт
+## Требования
 
-### 1. Создайте Telegram-бота
+- Телефон на **Android 7+**
+- **Termux** (версия из F-Droid, НЕ из Google Play)
+- Аккаунт Telegram
+- ~100 МБ свободного места
+- Интернет
 
-1. Напишите `@BotFather` в Telegram → `/newbot`
-2. Скопируйте **токен бота**
-3. Напишите `@userinfobot` → скопируйте свой **Chat ID**
-4. Напишите своему новому боту `/start` (иначе он не сможет вам писать)
-
-### 2. Установите зависимости
-
-```bash
-python3 -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
-playwright install chromium
-```
-
-### 3. Настройте `.env`
-
-```bash
-cp .env.example .env
-```
-
-Заполните:
-
-```
-TELEGRAM_BOT_TOKEN=123456:ABC-DEF...
-TELEGRAM_CHAT_ID=123456789
-```
-
-### 4. Запустите
-
-**Одноразовый запуск (тест):**
-
-```bash
-python collector.py --dry-run
-```
-
-**Одноразовый запуск с уведомлением в Telegram:**
-
-```bash
-python collector.py
-```
-
-**Ежедневно в 16:00 МСК (планировщик):**
-
-```bash
-python scheduler.py
-```
-
-**Через cron (альтернатива):**
-
-```bash
-bash setup_cron.sh
-```
+**Не нужно:** ПК, root, платные API, TGStat, Telemetr, VPN.
 
 ## Структура проекта
 
 ```
-├── collector.py            # Оркестратор: парсинг → фильтрация → CSV → Telegram
-├── scraper.py              # Playwright-парсер TGStat + Telemetr.me (full)
-├── scraper_lite.py         # httpx-парсер Telemetr (Termux / без Playwright)
-├── notifier.py             # Отправка отчёта через Telegram Bot API
-├── scheduler.py            # Планировщик (APScheduler) — 16:00 МСК
-├── db.py                   # SQLite — история для расчёта прироста
-├── setup_cron.sh           # Установка cron-задачи
-├── requirements.txt        # Python-зависимости (full, с Playwright)
-├── requirements-termux.txt # Python-зависимости (lite, для Termux)
-├── .env.example            # Шаблон конфигурации
-├── reports/                # CSV-отчёты (создаётся автоматически)
-└── debug/                  # HTML-дампы для отладки парсера
+├── main.py             # Основной скрипт (async, Telethon)
+├── config.py           # Конфигурация (api_id, api_hash, chat_id)
+├── donors.txt          # Список каналов-доноров
+├── setup.sh            # Скрипт полной установки в Termux
+├── requirements.txt    # Python-зависимости
+├── ads_today.csv       # Выходной CSV (создаётся автоматически)
+├── last_checked.txt    # Метка последней проверки
+└── log.txt             # Лог работы
 ```
+
+---
+
+# Пошаговая инструкция по установке
+
+## Шаг 1. Установка Termux
+
+> **Важно:** ставьте Termux **из F-Droid**, а не из Google Play. Версия в Play Store устарела.
+
+1. Откройте в браузере: https://f-droid.org/packages/com.termux/
+2. Скачайте APK и установите
+3. Запустите Termux — откроется терминал
+
+Также установите **Termux:Boot** (для автозапуска после перезагрузки):
+
+https://f-droid.org/packages/com.termux.boot/
+
+## Шаг 2. Скачивание проекта и установка
+
+Скопируйте и вставьте в Termux (одна команда):
+
+```bash
+pkg update -y && pkg upgrade -y && pkg install -y python git nano && cd ~ && git clone https://github.com/Argos47IS/Cursor-Adventures.git ad-monitor && cd ad-monitor && bash setup.sh
+```
+
+Или по шагам:
+
+```bash
+pkg update && pkg upgrade -y
+pkg install python git nano -y
+cd ~
+git clone https://github.com/Argos47IS/Cursor-Adventures.git ad-monitor
+cd ad-monitor
+bash setup.sh
+```
+
+Установка займёт 2-3 минуты.
+
+## Шаг 3. Получение API ID и API Hash
+
+Это нужно для подключения к Telegram через Telethon (userbot).
+
+1. Откройте в браузере: **https://my.telegram.org**
+2. Войдите по номеру телефона (тому же, что в Telegram)
+3. Введите код подтверждения из Telegram
+4. Нажмите **«API development tools»**
+5. Заполните форму:
+   - **App title:** любое (например `Ad Monitor`)
+   - **Short name:** любое (например `admon`)
+   - **Platform:** Other
+   - **Description:** пустое или любое
+6. Нажмите **«Create application»**
+7. Скопируйте:
+   - **App api_id** — число (например `12345678`)
+   - **App api_hash** — строка (например `a1b2c3d4e5f6g7h8i9j0k1l2`)
+
+> **Эти данные создаются один раз и не меняются.** Никому не передавайте api_hash!
+
+## Шаг 4. Узнать свой Chat ID
+
+1. Откройте Telegram
+2. Найдите бота **@userinfobot**
+3. Отправьте ему любое сообщение
+4. Он ответит вашим **Id** — это числовой Chat ID (например `987654321`)
+5. Скопируйте его
+
+## Шаг 5. Настройка конфигурации
+
+Откройте config.py:
+
+```bash
+cd ~/ad-monitor
+nano config.py
+```
+
+Заполните три поля:
+
+```python
+API_ID = 12345678          # ваш api_id (число)
+API_HASH = "a1b2c3d4..."   # ваш api_hash (строка в кавычках)
+MY_CHAT_ID = 987654321     # ваш chat_id (число)
+```
+
+Сохраните: `Ctrl+O` → `Enter` → `Ctrl+X`
+
+## Шаг 6. Первый запуск (авторизация)
+
+```bash
+python3 main.py --login
+```
+
+Скрипт попросит:
+1. **Номер телефона** — введите с кодом страны (например `+79161234567`)
+2. **Код из Telegram** — придёт в приложение Telegram
+3. **Пароль 2FA** — если включена двухфакторная аутентификация
+
+После успешной авторизации создастся файл `ad_monitor.session` — он хранит сессию. **Больше логиниться не нужно.**
+
+## Шаг 7. Настройка списка доноров
+
+```bash
+nano donors.txt
+```
+
+Добавьте каналы, рекламу в которых хотите отслеживать:
+
+```
+@breakingmash
+@rian_ru
+@durov
+@varlamov
+```
+
+По одному username на строку, с `@` или без. Строки с `#` — комментарии.
+
+## Шаг 8. Тестовый запуск
+
+```bash
+python3 main.py --test
+```
+
+Скрипт покажет результаты в терминале, но **не отправит** отчёт в Telegram. Это для проверки, что всё работает.
+
+## Шаг 9. Полный запуск
+
+```bash
+python3 main.py
+```
+
+Скрипт проверит доноров, соберёт статистику и отправит отчёт + CSV вам в Telegram.
+
+## Шаг 10. Автоматический запуск (16:00 МСК ежедневно)
+
+### Вариант A: cron (рекомендуется)
+
+Cron уже настроен скриптом `setup.sh`. Активируйте его:
+
+```bash
+sv-enable crond
+```
+
+Проверьте задачу:
+
+```bash
+crontab -l
+```
+
+Должно показать строку с `0 13 * * *` (13:00 UTC = 16:00 МСК).
+
+### Вариант B: Ручной cron
+
+```bash
+crontab -e
+```
+
+Вставьте:
+
+```
+0 13 * * * cd /data/data/com.termux/files/home/ad-monitor && python3 main.py >> log.txt 2>&1
+```
+
+### Автозапуск после перезагрузки
+
+1. Установите **Termux:Boot** из F-Droid
+2. Запустите его один раз (для активации)
+3. Скрипт `setup.sh` уже создал файл автозапуска в `~/.termux/boot/`
+
+При каждой перезагрузке телефона crond запустится автоматически.
+
+### Termux Wake Lock (обязательно!)
+
+Чтобы Android не убивал Termux в фоне:
+
+```bash
+termux-wake-lock
+```
+
+Также:
+- Потяните уведомление Termux вниз → **Acquire wakelock**
+- Настройки → Приложения → Termux → Батарея → **Без ограничений**
+- На MIUI/Samsung: добавьте Termux в автозапуск
+
+---
+
+# Формат CSV-отчёта
+
+Файл `ads_today.csv` содержит колонки:
+
+| Колонка | Описание |
+|---------|----------|
+| `date` | Дата размещения рекламы (МСК) |
+| `buyer_username` | Username канала-покупателя |
+| `subs` | Подписчики покупателя |
+| `avg_views` | Средние просмотры (последние 10 постов) |
+| `er` | ER% (avg_views / subscribers × 100) |
+| `ad_link` | Ссылка на рекламный пост |
+| `donor_channel` | Канал-донор, где найдена реклама |
 
 ## Формат отчёта в Telegram
 
 ```
-📊 Статистика Telegram-каналов
-📅 20.03.2026 16:00
-🏷 IT / AI / Технологии / Вайбкодинг
-👥 Диапазон: 5 000 – 40 000 подписчиков
-━━━━━━━━━━━━━━━━━━━━
+📊 Отчёт о рекламе — 22.03.2026 16:00 МСК
 
-1. AI News  @ai_newz
-   👥 15 200 подп. | 📈 +320 за 24ч
+Найдено размещений: 5
 
-2. Python Scripts  @python_scripts
-   👥 8 400 подп. | 📈 +45 за 24ч
+1. @crypto_news
+   👥 45,200 подп. | 👁 12,300 avg views | 📈 ER 27.21%
+   📎 Донор: @breakingmash | 📅 2026-03-22 14:30
+   🔗 https://t.me/breakingmash/12345
 
-━━━━━━━━━━━━━━━━━━━━
-Всего каналов: 25
+2. @tech_insider
+   👥 23,100 подп. | 👁 8,400 avg views | 📈 ER 36.36%
+   📎 Донор: @durov | 📅 2026-03-22 11:15
+   🔗 https://t.me/durov/98765
 ```
 
-Плюс CSV-файл с полными данными во вложении.
+---
 
-## Настройки (.env)
-
-| Переменная | Описание | По умолчанию |
-|-----------|----------|-------------|
-| `TELEGRAM_BOT_TOKEN` | Токен бота от @BotFather | — |
-| `TELEGRAM_CHAT_ID` | ID чата для отправки отчётов | — |
-| `MIN_SUBSCRIBERS` | Минимум подписчиков | 5000 |
-| `MAX_SUBSCRIBERS` | Максимум подписчиков | 40000 |
-
-## Источники данных
-
-| Источник | URL | Что парсится |
-|----------|-----|-------------|
-| TGStat | `tgstat.ru/ratings/channels/tech` | Рейтинг IT-каналов |
-| Telemetr | `telemetr.me/catalog/IT` | Каталог IT-каналов |
-
-Скрипт автоматически пробует оба источника. Если один недоступен — использует другой.
-
-## Запуск на Android (Termux) без root
-
-> **Подробный пошаговый гайд со скриншотами и решением проблем:** [TERMUX_GUIDE.md](TERMUX_GUIDE.md)
-
-Playwright не работает в Termux напрямую (бинарники Chromium несовместимы). Есть два способа:
-
-### Способ A: Lite-режим (рекомендуется)
-
-Lite-режим использует `httpx` вместо Playwright. Парсит только Telemetr.me (отдаёт данные без CloudFlare). Этого достаточно — Telemetr даёт и подписчиков, и прирост за 24ч.
+# Полезные команды
 
 ```bash
-pkg install python
-pip install -r requirements-termux.txt
-cp .env.example .env   # заполнить токен бота и chat_id
+# Запуск вручную (полный цикл + отчёт)
+cd ~/ad-monitor && python3 main.py
 
-python collector.py --lite --dry-run   # тест
-python collector.py --lite             # запуск с отправкой в Telegram
-python scheduler.py                   # ежедневно в 16:00 МСК
+# Тестовый запуск (без отправки)
+python3 main.py --test
+
+# Только авторизация
+python3 main.py --login
+
+# Проверить cron-задачу
+crontab -l
+
+# Посмотреть логи
+cat log.txt
+
+# Посмотреть последний CSV
+cat ads_today.csv
+
+# Обновить список доноров
+nano donors.txt
+
+# Обновить проект до последней версии
+cd ~/ad-monitor && git pull
+
+# Проверить, запущен ли crond
+sv status crond
 ```
 
-Если Playwright не установлен, lite-режим включается автоматически (флаг `--lite` не нужен).
+---
 
-### Способ B: proot-distro (полный режим)
-
-Установите полноценный Linux внутри Termux (без root):
+# Как обновлять список доноров
 
 ```bash
-pkg install proot-distro
-proot-distro install ubuntu
-proot-distro login ubuntu
-
-# Внутри Ubuntu:
-apt update && apt install -y python3 python3-pip python3-venv
-python3 -m venv venv && source venv/bin/activate
-pip install -r requirements.txt
-playwright install --with-deps chromium
-cp .env.example .env   # заполнить
-python collector.py
+cd ~/ad-monitor
+nano donors.txt
 ```
 
-Этот способ даёт полный доступ к Playwright и обоим источникам (TGStat + Telemetr).
+Добавьте или удалите каналы. Формат:
 
-### Автозапуск в Termux (16:00 МСК)
+```
+# Это комментарий — будет пропущен
+@channel_username
+another_channel
+https://t.me/third_channel
+```
 
-Termux не поддерживает `cron`, но можно использовать `termux-job-scheduler` или `cronie`:
+Поддерживаются:
+- `@username`
+- `username` (без @)
+- `https://t.me/username` (полная ссылка)
+
+Изменения вступят в силу при следующем запуске.
+
+---
+
+# Решение проблем
+
+## FloodWaitError (Telegram rate limit)
+
+**Симптом:** в логах `FloodWait X сек`
+
+**Причина:** слишком частые запросы к API Telegram.
+
+**Решение:** скрипт автоматически ждёт указанное время и повторяет запрос. Если проблема повторяется:
+- Увеличьте паузу в `config.py`: `REQUEST_DELAY_MIN = 2.0`, `REQUEST_DELAY_MAX = 4.0`
+- Уменьшите количество доноров в `donors.txt`
+
+## Сессия истекла / просит логин повторно
+
+**Решение:**
 
 ```bash
-pkg install cronie termux-services
+rm ad_monitor.session
+python3 main.py --login
+```
+
+## «ChannelPrivateError» — канал недоступен
+
+**Причина:** канал приватный или вы не подписаны.
+
+**Решение:** подпишитесь на канал в Telegram или удалите его из `donors.txt`.
+
+## «Permission denied» при запуске setup.sh
+
+```bash
+chmod +x setup.sh
+bash setup.sh
+```
+
+## crond не запускается
+
+```bash
+pkg install cronie termux-services -y
 sv-enable crond
-
-# Добавить задачу (13:00 UTC = 16:00 МСК):
-crontab -e
-# Вставить:
-0 13 * * * cd /data/data/com.termux/files/home/tg-stats && python collector.py --lite >> collector.log 2>&1
+sv up crond
+sv status crond
 ```
 
-Или запустить планировщик как фоновый процесс:
+## Скрипт не находит рекламу
+
+Не все каналы размечают рекламу маркерами. Скрипт ищет:
+- Атрибут `message.sponsored`
+- Текстовые маркеры: «Реклама», «Sponsored», «#реклама», «erid:» и др.
+
+Если в канале реклама не помечена — она не будет обнаружена. Это ограничение подхода.
+
+## Termux убивает процесс в фоне
+
+1. `termux-wake-lock`
+2. Настройки → Приложения → Termux → Батарея → **Без ограничений**
+3. На Xiaomi/Samsung: Настройки → Батарея → Автозапуск → включите Termux
+
+## «No module named telethon»
 
 ```bash
-nohup python scheduler.py &
+pip install -r requirements.txt
 ```
 
-## Решение проблем
+## Код подтверждения не приходит при --login
 
-| Проблема | Решение |
-|----------|---------|
-| CloudFlare блокирует | Попробуйте через VPN/прокси; проверьте `debug/*.html` |
-| Бот не отправляет | Убедитесь, что написали боту `/start` |
-| Нет каналов в отчёте | Проверьте `debug/` — там HTML-дампы страниц |
-| Нет прироста | Прирост появится со второго дня (нужна история в БД) |
-| Playwright не запускается | Выполните `playwright install chromium` или используйте `--lite` |
-| Termux: `lxml` не ставится | `pkg install libxml2 libxslt` перед `pip install` или используйте lite (он не требует lxml) |
+- Подождите 1-2 минуты
+- Проверьте Telegram — код может прийти в «Saved Messages»
+- Попробуйте ещё раз: `python3 main.py --login`
+
+## Как сменить аккаунт Telegram
+
+```bash
+rm ad_monitor.session
+python3 main.py --login
+```
+
+---
+
+# Безопасность
+
+- **api_hash** — никогда никому не передавайте
+- **Файл сессии** (`ad_monitor.session`) — содержит ключи авторизации. Не копируйте его на другие устройства
+- Скрипт работает от вашего аккаунта — Telegram может заблокировать за подозрительную активность при слишком частых запросах. Паузы между запросами (`REQUEST_DELAY_*`) защищают от этого.
+- Не добавляйте `config.py` с вашими данными в публичные репозитории
+
+---
+
+# Технические детали
+
+- **Асинхронный код** на `asyncio` + Telethon
+- **Сессия** сохраняется в файл — повторный логин не нужен
+- **FloodWait** обрабатывается автоматически (ждёт + повторяет)
+- **Rate-limit** защита: пауза 1-2.5 сек между каждым запросом
+- **last_checked** timestamp — предотвращает дублирование старых постов
+- **Timezone** МСК (`Europe/Moscow`) через `zoneinfo`
+- **Логирование** в файл `log.txt` + консоль
