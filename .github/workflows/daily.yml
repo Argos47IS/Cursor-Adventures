@@ -1,0 +1,53 @@
+name: "Daily Telegram Advertisers Scraper"
+
+# Запуск каждый день в 13:00 UTC = 16:00 МСК
+# + возможность ручного запуска через Actions
+on:
+  schedule:
+    - cron: "0 13 * * *"
+  workflow_dispatch:
+    inputs:
+      max_channels:
+        description: "Максимум каналов для проверки"
+        required: false
+        default: "300"
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: "Checkout репозитория"
+        uses: actions/checkout@v4
+
+      - name: "Установка Python 3.12"
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: "Установка зависимостей"
+        run: pip install -r requirements.txt
+
+      - name: "Запуск сборщика рекламодателей"
+        env:
+          API_ID: ${{ secrets.API_ID }}
+          API_HASH: ${{ secrets.API_HASH }}
+          SESSION_STRING: ${{ secrets.SESSION_STRING }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          GOOGLE_SA_CREDENTIALS: ${{ secrets.GOOGLE_SA_CREDENTIALS }}
+          GOOGLE_SHEET_NAME: ${{ secrets.GOOGLE_SHEET_NAME }}
+          MAX_CHANNELS: ${{ github.event.inputs.max_channels || '300' }}
+        run: python main.py
+
+      - name: "Сохранение артефактов (CSV + лог)"
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: "report-${{ github.run_number }}"
+          path: |
+            output/
+            log.txt
+          retention-days: 30
