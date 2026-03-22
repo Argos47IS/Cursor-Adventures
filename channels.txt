@@ -1,0 +1,77 @@
+# Список каналов для мониторинга sponsored messages
+# По одному каналу на строку (без @)
+# Строки начинающиеся с # — комментарии
+#
+# Рекомендуется 50–300 каналов для качественного покрытия.
+# Чем больше каналов — тем дольше скрипт работает (3–8 сек на канал).
+
+# === Новости / Медиа ===
+durov
+telegram
+breakingmash
+lentachold
+varlamov
+banksta
+readovkanews
+rian_ru
+shot_shot
+rt_russian
+
+# === IT / Технологии ===
+habr_com
+vc_ru
+tproger
+kod_ru
+devby
+proglib
+nuancesprog
+exploitex
+the_devs
+codecamp
+
+# === AI / ML ===
+ailib
+openai_ru
+ai_machinelearning
+neurohive
+
+# === Frontend / Backend ===
+frontend_info
+javascript_ru
+typescript_ru
+react_js
+vuejs_club
+angular_ru
+nodejs_ru
+python_scripts
+pythonl
+golang_ru
+rustlang_ru
+java_ru
+dotnet_ru
+
+# === DevOps / Infra ===
+docker_ru
+kubernetes_ru
+linux_ru
+devops_deflope
+
+# === Дизайн / UX ===
+figma_community
+ux_ru
+webdesign_channel
+
+# === Крипто / Финтех ===
+crypto_ru
+fintechru
+
+# === Бизнес / Маркетинг ===
+bigtechru
+startupoftheday
+marketing_ru
+smm_ru
+
+# === Образование ===
+data_science_ru
+stepik_courses
+educationru

@@ -14,14 +14,22 @@ channel_stats.db
 # Reports
 reports/
 
+# Output (CSV-отчёты)
+output/
+
 # Debug output
 debug/
 
 # Logs
 *.log
+log.txt
 
 # Playwright browsers cached locally
 pw-browsers/
+
+# Google Service Account keys
+service_account.json
+*.json.key
 
 # Android / GeoDetect
 GeoDetect/app/build/
